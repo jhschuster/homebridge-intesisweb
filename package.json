@@ -1,0 +1,27 @@
+{
+  "name": "homebridge-intesisweb",
+  "version": "1.0.0",
+  "description": "Homebridge plugin for the IntesisHome, using their web interface.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "homebridge-intesisweb",
+    "homebridge",
+    "intesisweb",
+    "intesis"
+  ],
+  "author": "Jay Schuster <jay@pcc.com>",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "homebridge": ">=0.4.0",
+    "node": ">=0.12.0"
+  },
+  "dependencies": {
+    "request": "^2.88.0",
+    "request-promise-native": "^1.0.7"
+  }
+}

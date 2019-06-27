@@ -1,0 +1,569 @@
+/*
+ * vi:set sw=4 noet:
+ *
+ * MIT License
+ *
+ * Original work Copyright (c) 2018 Phillip Moon
+ * Modified work Copyright 2019 Jay Schuster
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+var Service, Characteristic;
+const rp = require("request-promise-native").defaults({jar: true});
+
+module.exports = function (homebridge) {
+    Service = homebridge.hap.Service;
+    Characteristic = homebridge.hap.Characteristic;
+    homebridge.registerPlatform("homebridge-intesisweb", "IntesisWeb", IntesisWeb);
+};
+
+/*
+ * Platform code
+ */
+function IntesisWeb(log, config) {
+    this.log = log;
+    this.config = config;
+    this.log("IntesisWeb(log, config) called.");
+}
+
+IntesisWeb.prototype = {
+    accessories: function (callback) {
+	this.log("IntesisWeb.accessories(callback) called.");
+	const config = this.config;
+	this.apiBaseURL = config["apiBaseURL"] || "https://user.intesishome.com/";
+	this.apiBaseURL = this.apiBaseURL.lastIndexOf("/") == this.apiBaseURL.length - 1 ? this.apiBaseURL : this.apiBaseURL + "/";
+	this.username = config["username"];
+	this.password = config["password"];
+	this.configCacheSeconds = config["configCacheSeconds"] || 30;
+	this.accessories = [];
+	this.deviceDictionary = {};
+	this.lastLogin = null;
+	this.loggedIn = false;
+	this.refreshConfigCallbackQueue = [];
+	this.callbackRefreshConfigQueue = () => {
+	    var item = this.refreshConfigCallbackQueue.pop();
+	    this.log("callbackRefreshConfigQueue: started.");
+	    while (item) {
+		if (typeof item === "function") {
+		    item();
+		}
+		item = this.refreshConfigCallbackQueue.pop();
+	    }
+	    this.log("callbackRefreshConfigQueue: finished.");
+	};
+	this.setupAccessories = function (accessories) {
+	    this.log("Setting up accessories/devices...");
+	    // this.log(accessories);
+	    callback(accessories);
+	};
+	this.instantiateAccessories();
+    },
+
+    doLogin: async function () {
+	this.log("IntesisWeb.doLogin() called.");
+	var body = await rp.get(this.apiBaseURL + "login");
+	this.log("GET /login OK");
+	const csrf = body.match(/signin\[_csrf_token\]" value="([^"]+)"/)[1];
+	body = await rp.post({
+		"url": this.apiBaseURL + "login",
+		"form": {
+		    "signin[username]": this.username,
+		    "signin[password]": this.password,
+		    "signin[_csrf_token]": csrf
+		}
+	}).catch((err) => {
+	    this.log("POST /login", err.statusCode);
+	    return 302 == err.statusCode ? err.response.body : null;
+	});
+	if (!body) {
+	    this.log("Login failed. Giving up.");
+	    this.loggedIn = false;
+	}
+	else {
+	    this.log("POST /login OK");
+	    this.lastLogin = new Date().getTime();
+	    this.loggedIn = true;
+	}
+	return this.loggedIn;
+    },
+
+    getHeaders: async function () {
+	this.log("IntesisWeb.getHeaders() called.");
+	var body = await rp.get(this.apiBaseURL + "panel/headers")
+	    .catch((err) => {
+		this.log("GET /panel/headers", err.statusCode);
+		this.log(err);
+		return null;
+	    });
+	if (!body) {
+	    this.loggedIn = false;
+	    return null;  // Error. Not sure what to do. Try logging in again.
+	}
+	else if (body.match(/<title>/)) {
+	    this.log("GET /panel/headers LOGIN");
+	    this.loggedIn = false;
+	    return null;  // Got the login page; try logging in again.
+	}
+	this.log("GET /panel/headers OK");
+	return body;
+    },
+
+    getConfig: async function () {
+	this.log("IntesisWeb.getConfig() called.");
+	var body;
+	while (!body) {
+	    if (!this.loggedIn && !await this.doLogin()) {
+		return null;
+	    }
+	    body = await this.getHeaders();
+	}
+	var re = /<div id="deviceHeader_(\d+)"[^]*?<div class="name left">(.*?)<\/div>/g;
+	var matches;
+	var devices = [ ];
+	while ((matches = re.exec(body)) !== null) {
+	    devices.push({
+		"device_id": matches[1],
+		"name": matches[2],
+		"services": null
+	    });
+	}
+	if (0 == devices.length) {
+	    this.log("getConfig FAILED");
+	    this.log(body);
+	    return null;
+	}
+	var states = await Promise.all(
+	    devices.map(async function (device) {
+		return rp.get(this.apiBaseURL
+			+ "panel/vista?id=" + device.device_id)
+		    .then((body) => {
+			return this.getDeviceStateFromVista(body);
+		    })
+		    .catch((err) => {
+			this.log("panel/vista?id=", err.statusCode);
+			this.log(err);
+			return null;
+		    });
+	    }.bind(this)));
+	for (let i = 0; i < states.length; i++) {
+	    devices[i].services = states[i];
+	}
+	this.lastConfigFetch = new Date().getTime();
+	this.log("getConfig:");
+	this.log(JSON.stringify(devices, null, 2));
+	return devices;
+    },
+
+    getDeviceStateFromVista: function (body) {
+	const user_id = body.match(/\&userId=(\d+)/)[1];
+	var services = {
+	    "power": {
+		"service_name": "power",
+		"service_id": 1,
+		"user_id": user_id,
+		"value":
+		    parseInt(body.match(/var selectedOnOff = (\d);/)[1], 10)
+	    },
+	    "userMode": {
+		"service_name": "userMode",
+		"service_id": 2,
+		"user_id": user_id,
+		"value":
+		    parseInt(body.match(/var selectedUsermode = (\d);/)[1], 10)
+	    },
+	    "currentTemp": {
+		"service_name": "currentTemp",
+		"user_id": user_id,
+		"rawvalue":
+		    body.match(/<div class="key_value">(\d+&deg;[FC])<\/div>/)[1],
+		"value": null
+	    },
+	    "fanSpeed": {
+		"service_name": "fanSpeed",
+		"service_id": 4,
+		"user_id": user_id,
+		"value":
+		    parseInt(body.match(/var selectedfanspeed = (\d);/)[1], 10)
+	    },
+	    "setpointTemp": {
+		"service_name": "setpointTemp",
+		"service_id": 9,
+		"user_id": user_id,
+		/* "value": parseInt(body.match(/<span id="setPointFahrenheit_$id" class="">(\d+)<\/span>/)[1], 10) */
+		"value":
+		    parseInt(body.match(/setTempCelsiusConsignaHeader\(\d+, '(\d+).\d+'\);/)[1], 10)
+	    },
+	    "horizontalVanes": {
+		"service_name": "horizontalVanes",
+		"service_id": 6,
+		"user_id": user_id,
+		"value":
+		    parseInt(body.match(/var selectedhvane = (\d+);/)[1], 10)
+	    },
+	    "verticalVanes": {
+		"service_name": "verticalVanes",
+		"service_id": 5,
+		"user_id": user_id,
+		"value":
+		    parseInt(body.match(/var selectedvvane = (\d+);/)[1], 10)
+	    }
+	}
+	/*
+	 * Handle Fahrenheit vs. Celsius
+	 */
+	services.currentTemp.value =
+	    services.currentTemp.rawvalue.match(/deg;F/)
+		? Math.round((parseInt(services.currentTemp.rawvalue, 10) - 32) * 5/9)
+		: parseInt(services.currentTemp.rawvalue, 10);
+	return(services);
+    },
+
+    instantiateAccessories: async function () {
+	var devices = await this.getConfig();
+	if (!devices || devices.length == 0) {
+	    this.log("Malformed config, skipping.");
+	    return;
+	}
+	for (let i = 0, l = devices.length; i < l; i++) {
+	    let device = devices[i];
+	    let name = device.name;
+	    if (!name) {
+		this.log("Device had no name, not added:");
+		this.log(JSON.stringify(device));
+		continue;
+	    }
+	    else if (this.deviceDictionary[name]) {
+		this.log(`"${name}" already instantiated.`);
+	    }
+	    else {
+		this.deviceDictionary[name] = new IntesisWebDevice(this.log, device, this);
+		this.accessories.push(this.deviceDictionary[name]);
+		this.log(`Added "${name}" - Device ID: ${device.device_id}.`);
+	    }
+	}
+	this.setupAccessories(this.accessories);
+    },
+
+    refreshConfig: async function (msg, callback) {
+	this.log("Refreshing config for", msg);
+	callback = callback || function () {};
+	if (this.lastConfigFetch && (new Date().getTime() - this.lastConfigFetch) / 1000 <= this.configCacheSeconds) {
+	    this.log(`Using cached data; less than ${this.configCacheSeconds}s old.`);
+	    callback();
+	    return;
+	}
+	this.refreshConfigCallbackQueue.push(callback);
+	if (this.refreshConfigInProgress) {
+	    this.log("Config refresh in progress, queueing callback.");
+	    return;
+	}
+	this.refreshConfigInProgress = true;
+	var devices = await this.getConfig();
+	if (!devices) {
+	    this.log("Config refresh FAILED.");
+	    return;
+	}
+	this.log("Config refresh successful.");
+	for (var i = 0, l = devices.length; i < l; i++) {
+	    var device = devices[i];
+	    var name = device.name;
+	    if (!name || !this.deviceDictionary[name]) {
+		continue;
+	    }
+	    this.deviceDictionary[name].updateData(device);
+	}
+	this.refreshConfigInProgress = false;
+	this.callbackRefreshConfigQueue();
+    },
+
+    setValue: async function (userID, deviceID, serviceID, value, callback) {
+	if (!userID) {
+	    callback("No userID supplied.");
+	    return;
+	}
+	if (!deviceID) {
+	    callback("No deviceID supplied.");
+	    return;
+	}
+	if (!serviceID) {
+	    callback("No serviceID supplied.");
+	    return;
+	}
+	callback = callback || function () {};
+	this.log("setValue: " + this.apiBaseURL + "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID);
+	var body = await rp.post({
+		"url": this.apiBaseURL + "device/setVal",
+		"headers": { "X_Requested_With": "XMLHttpRequest" },
+		"qs": {
+		    "id": deviceID,
+		    "uid": serviceID,
+		    "value": value,
+		    "userId": userID
+		}
+	}).catch((err) => {
+	    this.log("POST /device/setVal", err.statusCode);
+	    return err.body;
+	});
+	this.log(body);
+	callback(null, body);
+    }
+}
+
+/*
+ * Accessory code
+ */
+function IntesisWebDevice(log, details, platform) {
+    this.dataMap = {
+	"power": {
+	    /*
+	     * off on
+	     *	 0  1
+	     */
+	    "intesis": function (homekitValue) {
+		let intesisMode;
+		switch (homekitValue) {
+		    case Characteristic.Active.ACTIVE:
+			intesisMode = 1;
+			break;
+		    case Characteristic.Active.INACTIVE:
+		    default:
+			intesisMode = 0;
+			break;
+		}
+		return intesisMode;
+	    },
+	    "homekit": [
+		Characteristic.Active.INACTIVE,
+		Characteristic.Active.ACTIVE
+	    ]
+	},
+	"userMode": {
+	    /*
+	     * auto heat dry fan cool
+	     *	0    1	  2   3	 4
+	     */
+	    "intesis": function (homekitValue) {
+		let intesisMode;
+		switch (homekitValue) {
+		    case Characteristic.TargetHeaterCoolerState.HEAT:
+			intesisMode = "heat";
+			break;
+		    case Characteristic.TargetHeaterCoolerState.COOL:
+			intesisMode = "cool";
+			break;
+		    case Characteristic.TargetHeaterCoolerState.AUTO:
+		    default:
+			intesisMode = "auto";
+			break;
+		}
+		return intesisMode;
+	    },
+	    "homekit": [
+		Characteristic.TargetHeaterCoolerState.AUTO,
+		Characteristic.TargetHeaterCoolerState.HEAT,
+		Characteristic.TargetHeaterCoolerState.AUTO,
+		Characteristic.TargetHeaterCoolerState.AUTO,
+		Characteristic.TargetHeaterCoolerState.COOL
+	    ]
+	},
+	"fanSpeed": {
+	    /*
+	     * auto 1 2 3 4
+	     *	 0  1 2 3 4
+	     */
+	    "intesis": [ 0, 1, 2, 3, 4 ],
+	    "homekit": [ 0, 1, 2, 3, 4 ]
+	}
+    };
+    this.log = log;
+    this.details = details;
+    this.platform = platform;
+    this.name = details.name;
+    this.heaterCoolerService = new Service.HeaterCooler(details.name);
+    this.accessoryInfoService = new Service.AccessoryInformation();
+    this.accessoryInfoService
+	.setCharacteristic(Characteristic.Manufacturer, "Intesis")
+	.setCharacteristic(Characteristic.Model, details.name)
+	.setCharacteristic(Characteristic.SerialNumber, details.device_id);
+    this.services = [this.heaterCoolerService, this.accessoryInfoService];
+    this.setup(this.details);
+}
+
+IntesisWebDevice.prototype = {
+    setup: function (details) {
+	var services = details.services;
+	var deviceID = details.device_id;
+	for (var serviceName in services) {
+	    this.addService(services[serviceName], deviceID);
+	}
+    },
+    getServices: function () {
+	return this.services;
+    },
+    updateData: function (newDetails) {
+	if (!newDetails) {
+	    return;
+	}
+	this.details = newDetails;
+    },
+    addService: function (service, deviceID) {
+	const serviceName = service.service_name;
+	const serviceID = service.service_id;
+	const userID = service.user_id;
+
+	switch (serviceName) {
+	    case "power":
+		this.heaterCoolerService
+		    .getCharacteristic(Characteristic.Active)
+		    .on("get", callback => {
+			this.platform.refreshConfig("power", () => {
+			    callback(null, this.dataMap.power.homekit[this.details.services.power.value]);
+			});
+		    })
+		    .on("set", (value, callback) => {
+			this.log("power SET", value);
+			this.platform.setValue(userID, deviceID, serviceID, this.dataMap.power.intesis(value), (error, value) => {
+			    if (!error) {
+				this.details.services.power.value = value;
+			    }
+			    callback(error, this.dataMap.power.intesis(value));
+			});
+		    });
+		break;
+
+	    case "userMode":
+		this.heaterCoolerService
+		    .getCharacteristic(Characteristic.TargetHeaterCoolerState)
+		    .on("get", callback => {
+			this.platform.refreshConfig("userMode", () => {
+			    callback(null, this.dataMap.userMode.homekit[this.details.services.userMode.value]);
+			});
+		    })
+		    .on("set", (value, callback) => {
+			this.log("userMode SET", value);
+			this.platform.setValue(userID, deviceID, serviceID, this.dataMap.userMode.intesis(value), (error, value) => {
+			    if (!error) {
+				this.details.services.userMode.value = value;
+			    }
+			    callback(error, this.dataMap.userMode.intesis(value));
+			});
+		    });
+		break;
+
+	    case "fanSpeed":
+		this.heaterCoolerService
+		    .addCharacteristic(Characteristic.RotationSpeed)
+		    .setProps({
+			"maxValue": 4,
+			"minValue": 0,
+			"minStep": 1
+		    })
+		    .on("get", callback => {
+			this.platform.refreshConfig("fanSpeed", () => {
+			    callback(null, this.dataMap.fanSpeed.homekit[this.details.services.fanSpeed.value]);
+			});
+		    })
+		    .on("set", (value, callback) => {
+			this.log("fanSpeed SET", value);
+			this.platform.setValue(userID, deviceID, serviceID, this.dataMap.fanSpeed.intesis[value], (error, value) => {
+			    if (!error) {
+				this.details.services.fanSpeed.value = value;
+			    }
+			    callback(error, this.dataMap.fanSpeed.intesis[value]);
+			});
+		    });
+		break;
+
+	    case "setpointTemp":
+		var maxTemp = 35;
+		var minTemp = 10;
+		var step = 1;
+		if (this.details.services.setpointTemp) {
+		    if (this.details.services.setpointTemp.max_value) {
+			maxTemp = this.details.services.setpointTemp.max_value;
+		    }
+		    if (this.details.services.setpointTemp.min_value) {
+			minTemp = this.details.services.setpointTemp.min_value;
+		    }
+		    if (this.details.services.setpointTemp.step) {
+			step = this.details.services.setpointTemp.step;
+		    }
+		}
+
+		this.heaterCoolerService
+		    .addCharacteristic(Characteristic.CoolingThresholdTemperature)
+		    .setProps({
+			"maxValue": maxTemp,
+			"minValue": minTemp,
+			"minStep": step
+		    })
+		    .on("get", callback => {
+			this.platform.refreshConfig("setpointTemp", () => {
+			    callback(null, this.details.services.setpointTemp.value);
+			});
+		    })
+		    .on("set", (value, callback) => {
+			this.log("setpointTemp SET", value);
+			this.platform.setValue(userID, deviceID, serviceID, value, (error, value) => {
+			    if (!error) {
+				this.details.services.setpointTemp.value = value;
+			    }
+			    callback(error, value);
+			});
+		    })
+		    .updateValue(this.targetTemperature);
+
+		this.heaterCoolerService
+		    .addCharacteristic(Characteristic.HeatingThresholdTemperature)
+		    .setProps({
+			"maxValue": maxTemp,
+			"minValue": minTemp,
+			"minStep": step
+		    })
+		    .on("get", callback => {
+			this.platform.refreshConfig("setpointTemp", () => {
+			    callback(null, this.details.services.setpointTemp.value);
+			});
+		    })
+		    .on("set", (value, callback) => {
+			this.log("setpointTemp SET", value);
+			this.platform.setValue(userID, deviceID, serviceID, value, (error, value) => {
+			    if (!error) {
+				this.details.services.setpointTemp.value = value;
+			    }
+			    callback(error, value);
+			});
+		    })
+		    .updateValue(this.targetTemperature);
+		break;
+
+	    case "currentTemp":
+		this.heaterCoolerService
+		    .getCharacteristic(Characteristic.CurrentTemperature)
+		    .on("get", callback => {
+			this.platform.refreshConfig("currentTemp", () => {
+			    callback(null, this.details.services.currentTemp.value);
+			});
+		    })
+		    .updateValue(this.details.services.currentTemp.value);
+		break;
+	}
+    }
+};
