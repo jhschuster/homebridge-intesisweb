@@ -15,7 +15,6 @@
   ],
   "author": "Jay Schuster <jay@pcc.com>",
   "license": "MIT",
-  "private": true,
   "engines": {
     "homebridge": ">=0.4.0",
     "node": ">=0.12.0"
