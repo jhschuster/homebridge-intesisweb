@@ -372,14 +372,14 @@ function IntesisWebDevice(log, details, platform) {
 		let intesisMode;
 		switch (homekitValue) {
 		    case Characteristic.TargetHeaterCoolerState.HEAT:
-			intesisMode = "heat";
+			intesisMode = 1;
 			break;
 		    case Characteristic.TargetHeaterCoolerState.COOL:
-			intesisMode = "cool";
+			intesisMode = 4;
 			break;
 		    case Characteristic.TargetHeaterCoolerState.AUTO:
 		    default:
-			intesisMode = "auto";
+			intesisMode = 0;
 			break;
 		}
 		return intesisMode;
