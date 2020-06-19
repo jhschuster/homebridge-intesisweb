@@ -192,7 +192,7 @@ IntesisWeb.prototype = {
 		"service_name": "currentTemp",
 		"user_id": user_id,
 		"rawvalue":
-		    body.match(/<div class="key_value">(\d+&deg;[FC])<\/div>/)[1],
+		    body.match(/<div class="key_value">([0-9.]+\&deg;[FC])<\/div>/)[1],
 		"value": null
 	    },
 	    "fanSpeed": {
@@ -214,16 +214,20 @@ IntesisWeb.prototype = {
 		"service_name": "horizontalVanes",
 		"service_id": 6,
 		"user_id": user_id,
-		"value":
-		    parseInt(body.match(/var selectedhvane = (\d+);/)[1], 10)
+		"value": null
 	    },
 	    "verticalVanes": {
 		"service_name": "verticalVanes",
 		"service_id": 5,
 		"user_id": user_id,
-		"value":
-		    parseInt(body.match(/var selectedvvane = (\d+);/)[1], 10)
+		"value": null
 	    }
+	}
+	if (body.match(/var selectedhvane =/)) {
+	    services.horizontalVanes.value = parseInt(body.match(/var selectedhvane = (\d+);/)[1], 10);
+	}
+	if (body.match(/var selectedvvane =/)) {
+	    services.verticalVanes.value = parseInt(body.match(/var selectedvvane = (\d+);/)[1], 10);
 	}
 	/*
 	 * Handle Fahrenheit vs. Celsius
@@ -521,7 +525,7 @@ IntesisWebDevice.prototype = {
 		    })
 		    .on("set", (value, callback) => {
 			this.log("setpointTemp SET", value);
-			this.platform.setValue(userID, deviceID, serviceID, value, (error, value) => {
+			this.platform.setValue(userID, deviceID, serviceID, value * 10, (error, value) => {
 			    if (!error) {
 				this.details.services.setpointTemp.value = value;
 			    }
@@ -544,7 +548,7 @@ IntesisWebDevice.prototype = {
 		    })
 		    .on("set", (value, callback) => {
 			this.log("setpointTemp SET", value);
-			this.platform.setValue(userID, deviceID, serviceID, value, (error, value) => {
+			this.platform.setValue(userID, deviceID, serviceID, value * 10, (error, value) => {
 			    if (!error) {
 				this.details.services.setpointTemp.value = value;
 			    }
