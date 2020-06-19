@@ -191,8 +191,10 @@ IntesisWeb.prototype = {
 	    "currentTemp": {
 		"service_name": "currentTemp",
 		"user_id": user_id,
-		"rawvalue":
-		    body.match(/<div class="key_value">([0-9.]+\&deg;[FC])<\/div>/)[1],
+		"units":
+		    body.match(/<div class="key_value">[0-9.]+\&deg;([FC])<\/div>/)[1],
+		"raw_value":
+		    body.match(/<div class="key_value">([0-9.]+)\&deg;[FC]<\/div>/)[1],
 		"value": null
 	    },
 	    "fanSpeed": {
@@ -207,35 +209,38 @@ IntesisWeb.prototype = {
 		"service_id": 9,
 		"user_id": user_id,
 		/* "value": parseInt(body.match(/<span id="setPointFahrenheit_$id" class="">(\d+)<\/span>/)[1], 10) */
-		"value":
-		    parseInt(body.match(/setTempCelsiusConsignaHeader\(\d+, '(\d+).\d+'\);/)[1], 10)
-	    },
-	    "horizontalVanes": {
-		"service_name": "horizontalVanes",
-		"service_id": 6,
-		"user_id": user_id,
-		"value": null
-	    },
-	    "verticalVanes": {
-		"service_name": "verticalVanes",
-		"service_id": 5,
-		"user_id": user_id,
+		"raw_value":
+		    body.match(/setTempCelsiusConsignaHeader\(\d+, '(\d+.\d+)'\);/)[1],
 		"value": null
 	    }
 	}
+	/*
+	 * Vanes don't exist on all models
+	 */
 	if (body.match(/var selectedhvane =/)) {
-	    services.horizontalVanes.value = parseInt(body.match(/var selectedhvane = (\d+);/)[1], 10);
+	    services["horizontalVanes"] = {
+		"service_name": "horizontalVanes",
+		"service_id": 6,
+		"user_id": user_id,
+		"value": parseInt(body.match(/var selectedhvane = (\d+);/)[1], 10)
+	    };
 	}
 	if (body.match(/var selectedvvane =/)) {
-	    services.verticalVanes.value = parseInt(body.match(/var selectedvvane = (\d+);/)[1], 10);
+	    services["verticalVanes"] = {
+		"service_name": "verticalVanes",
+		"service_id": 5,
+		"user_id": user_id,
+		"value": parseInt(body.match(/var selectedvvane = (\d+);/)[1], 10)
+	    };
 	}
+	services.setpointTemp.value = parseFloat(services.setpointTemp.raw_value);
 	/*
 	 * Handle Fahrenheit vs. Celsius
 	 */
 	services.currentTemp.value =
-	    services.currentTemp.rawvalue.match(/deg;F/)
-		? Math.round((parseInt(services.currentTemp.rawvalue, 10) - 32) * 5/9)
-		: parseInt(services.currentTemp.rawvalue, 10);
+	    services.currentTemp.units.match(/F/)
+		? (parseFloat(services.currentTemp.raw_value) - 32) * 5/9
+		: parseFloat(services.currentTemp.raw_value);
 	return(services);
     },
 
@@ -525,7 +530,7 @@ IntesisWebDevice.prototype = {
 		    })
 		    .on("set", (value, callback) => {
 			this.log("setpointTemp SET", value);
-			this.platform.setValue(userID, deviceID, serviceID, value * 10, (error, value) => {
+			this.platform.setValue(userID, deviceID, serviceID, Math.round(value * 10), (error, value) => {
 			    if (!error) {
 				this.details.services.setpointTemp.value = value;
 			    }
@@ -548,7 +553,7 @@ IntesisWebDevice.prototype = {
 		    })
 		    .on("set", (value, callback) => {
 			this.log("setpointTemp SET", value);
-			this.platform.setValue(userID, deviceID, serviceID, value * 10, (error, value) => {
+			this.platform.setValue(userID, deviceID, serviceID, Math.round(value * 10), (error, value) => {
 			    if (!error) {
 				this.details.services.setpointTemp.value = value;
 			    }
