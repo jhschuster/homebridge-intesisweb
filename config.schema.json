@@ -1,0 +1,54 @@
+{
+  "pluginAlias": "IntesisWeb",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "[homebridge-intesisweb](https://github.com/jhschuster/homebridge-intesisweb) is a Homebridge plugin to interact with Intesis Home heat pump controllers.",
+  "footerDisplay": "For additional help please see the [developer page](https://github.com/jhschuster/homebridge-intesisweb).",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "username": {
+        "title": "Intesis User Name",
+        "type": "string",
+        "required": true,
+	"placeholder": "username",
+	"description": "Username for your Intesis account"
+      },
+      "password": {
+        "title": "Intesis Password",
+        "type": "string",
+        "required": true,
+	"placeholder": "password",
+	"description": "Password for your Intesis account"
+      },
+      "apiBaseURL": {
+        "title": "Intesis URL",
+        "type": "string",
+	"default": "https://user.intesishome.com/",
+        "format": "uri",
+        "required": false,
+	"description": "Base URL of Intesis website"
+      },
+      "configCacheSeconds": {
+        "title": "Cache Time",
+        "type": "integer",
+	"default": 30,
+	"minimum": 1,
+        "required": false,
+	"description": "Number of seconds for which to cache data"
+      }
+    }
+  },
+  "form": [
+    "username",
+    "password",
+    {
+	"type": "fieldset",
+	"expandable": true,
+	"title": "Advanced Settings (Optional)",
+	"description": "These are optional settings that you can adjust if needed. The defaults should work for nearly everyone.",
+	"items": ["apiBaseURL", "configCacheSeconds"]
+    }
+  ],
+  "display": null
+}

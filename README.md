@@ -17,13 +17,13 @@ With Homebridge already installed, install the plugin by running:
 Here is an example stanza for your config.json:
 
     "platforms": [
-	{
-	    "platform": "IntesisWeb",
-	    "username": "username",
-	    "password": "password",
-	    "apiBaseURL": "https://user.intesishome.com/",
-	    "configCacheSeconds": 30
-	}
+      {
+        "platform": "IntesisWeb",
+        "username": "username",
+        "password": "password",
+        "apiBaseURL": "https://user.intesishome.com/",
+        "configCacheSeconds": 30
+      }
     ]
 
 ### Required Options
