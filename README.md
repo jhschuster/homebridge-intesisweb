@@ -48,22 +48,3 @@ the device on.
 
 My implentation treats a fan speed of zero as setting it to automatic, but
 the Home app treats it as meaning turn off the unit.
-
-For some reason HomeKit sends Swing Mode get/set requests in pairs, and the second one, when handled, throws this error:
-```
-(node:23446) UnhandledPromiseRejectionWarning: Error: This callback function has already been called by someone else; it can only be called one time.
-    at /usr/lib/node_modules/homebridge/node_modules/hap-nodejs/src/lib/util/once.ts:6:13
-    at /usr/lib/node_modules/homebridge-intesisweb/index.js:620:5
-    at IntesisWeb.refreshConfig (/usr/lib/node_modules/homebridge-intesisweb/index.js:289:6)
-    at SwingMode.<anonymous> (/usr/lib/node_modules/homebridge-intesisweb/index.js:617:18)
-    at SwingMode.emit (events.js:327:22)
-    at SwingMode.EventEmitter.emit (/usr/lib/node_modules/homebridge/node_modules/hap-nodejs/src/lib/EventEmitter.ts:42:22)
-    at SwingMode.Characteristic._this.getValue (/usr/lib/node_modules/homebridge/node_modules/hap-nodejs/src/lib/Characteristic.ts:462:12)
-    at /usr/lib/node_modules/homebridge/node_modules/hap-nodejs/src/lib/Accessory.ts:1215:22
-    at Array.forEach (<anonymous>)
-    at Bridge.Accessory._this._handleGetCharacteristics (/usr/lib/node_modules/homebridge/node_modules/hap-nodejs/src/lib/Accessory.ts:1143:10)
-(node:23446) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). To terminate the node process on unhandled promise rejection, use the CLI flag `--unhandled-rejections=strict` (see https://nodejs.org/api/cli.html#cli_unhandled_rejections_mode). (rejection id: 1)
-(node:23446) [DEP0018] DeprecationWarning: Unhandled promise rejections are deprecated. In the future, promise rejections that are not handled will terminate the Node.js process with a non-zero exit code.
-```
-To hack around it, I've made it only process the callback for every other
-request.

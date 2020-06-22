@@ -227,9 +227,12 @@ IntesisWeb.prototype = {
 		"value": parseInt(body.match(/var selectedhvane = (\d+);/)[1], 10)
 	    };
 	    if (this.swingMode != "V") {
-		services["swingMode"] = services["horizontalVanes"];
-		services.swingMode.service_name = "swingMode";
-		services.swingMode.value = services.swingMode.value == 10 ? 10 : 0;
+		services["swingMode"] = {
+		    "service_name": "swingMode",
+		    "service_id": 6,
+		    "user_id": user_id,
+		    "value": services.horizontalVanes.value == 10 ? 10 : 0
+		};
 	    }
 	}
 	if (body.match(/var selectedvvane =/)) {
@@ -240,9 +243,12 @@ IntesisWeb.prototype = {
 		"value": parseInt(body.match(/var selectedvvane = (\d+);/)[1], 10)
 	    };
 	    if (this.swingMode == "V") {
-		services["swingMode"] = services["verticalVanes"];
-		services.swingMode.service_name = "swingMode";
-		services.swingMode.value = services.swingMode.value == 10 ? 10 : 0;
+		services["swingMode"] = {
+		    "service_name": "swingMode",
+		    "service_id": 5,
+		    "user_id": user_id,
+		    "value": services.verticalVanes.value == 10 ? 10 : 0
+		};
 	    }
 	}
 	services.setpointTemp.value = parseFloat(services.setpointTemp.raw_value);
@@ -443,7 +449,6 @@ function IntesisWebDevice(log, details, platform) {
 	.setCharacteristic(Characteristic.Model, details.name)
 	.setCharacteristic(Characteristic.SerialNumber, details.device_id);
     this.services = [this.heaterCoolerService, this.accessoryInfoService];
-    this.swingCount = 0;
     this.setup(this.details);
 }
 
@@ -615,24 +620,17 @@ IntesisWebDevice.prototype = {
 		    .getCharacteristic(Characteristic.SwingMode)
 		    .on("get", callback => {
 			this.platform.refreshConfig(deviceName, serviceName, () => {
-			    this.log(`${deviceName}: ${this.swingCount} ${serviceName} GET`, this.details.services.swingMode.value, this.dataMap.swingMode.homekit(this.details.services.swingMode.value));
-			    if (this.swingCount % 2 == 0) {
-				callback(null, this.dataMap.swingMode.homekit(this.details.services.swingMode.value));
-			    }
-			    this.swingCount++;
+			    callback(null, this.dataMap.swingMode.homekit(this.details.services.swingMode.value));
 			});
 		    })
 		    .on("set", (value, callback) => {
 			let intesisValue = this.dataMap.swingMode.intesis(value);
-			this.log(`${deviceName}: ${this.swingCount} ${serviceName} SET`, value, intesisValue);
+			this.log(`${deviceName}: ${serviceName} SET`, value, intesisValue);
 			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (error, value) => {
 			    if (!error) {
 				this.details.services.swingMode.value = intesisValue;
 			    }
-			    if (this.swingCount % 2 == 0) {
-				callback();
-			    }
-			    this.swingCount++;
+			    callback();
 			});
 		    });
 		break;
