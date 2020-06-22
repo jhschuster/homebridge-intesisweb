@@ -8,33 +8,41 @@
     "type": "object",
     "properties": {
       "username": {
-        "title": "Intesis User Name",
-        "type": "string",
-        "required": true,
+	"title": "Intesis User Name",
+	"type": "string",
+	"required": true,
 	"placeholder": "username",
 	"description": "Username for your Intesis account"
       },
       "password": {
-        "title": "Intesis Password",
-        "type": "string",
-        "required": true,
+	"title": "Intesis Password",
+	"type": "string",
+	"required": true,
 	"placeholder": "password",
 	"description": "Password for your Intesis account"
       },
+      "swingMode": {
+	"title": "Swing Mode",
+	"type": "string",
+	"oneOf": [
+	  { "title": "Horizontal", "enum": ["H"] },
+	  { "title": "Vertical", "enum": ["V"] }
+	],
+	"required": false,
+	"description": "Should swing mode affect the horizontal or vertical vanes? Defaults to horizontal."
+      },
       "apiBaseURL": {
-        "title": "Intesis URL",
-        "type": "string",
-	"default": "https://user.intesishome.com/",
-        "format": "uri",
-        "required": false,
+	"title": "Intesis URL",
+	"type": "string",
+	"format": "uri",
+	"required": false,
 	"description": "Base URL of Intesis website"
       },
       "configCacheSeconds": {
-        "title": "Cache Time",
-        "type": "integer",
-	"default": 30,
+	"title": "Cache Time",
+	"type": "integer",
 	"minimum": 1,
-        "required": false,
+	"required": false,
 	"description": "Number of seconds for which to cache data"
       }
     }
@@ -42,6 +50,7 @@
   "form": [
     "username",
     "password",
+    "swingMode",
     {
 	"type": "fieldset",
 	"expandable": true,
