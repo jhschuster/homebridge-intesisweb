@@ -47,7 +47,7 @@ IntesisWeb.prototype = {
     accessories: function (callback) {
 	this.log("IntesisWeb.accessories(callback) called.");
 	const config = this.config;
-	this.apiBaseURL = config["apiBaseURL"] || "https://user.intesishome.com/";
+	this.apiBaseURL = config["apiBaseURL"] || "https://accloud.intesis.com/";
 	this.apiBaseURL = this.apiBaseURL.lastIndexOf("/") == this.apiBaseURL.length - 1 ? this.apiBaseURL : this.apiBaseURL + "/";
 	this.username = config["username"];
 	this.password = config["password"];

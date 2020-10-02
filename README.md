@@ -5,7 +5,7 @@
 This is a Homebridge plugin for IntesisHome heat pump devices. It is based
 on Philip Moon's `homebridge-intesis` plugin, but instead of using
 Intesis's APIs (which aren't available for users any more), scrapes
-the user.intesis.com pages to get the information it needs.
+the accloud.intesis.com pages to get the information it needs.
 
 ## Installation
 
@@ -22,7 +22,7 @@ Here is an example stanza for your config.json:
         "username": "username",
         "password": "password",
         "swingMode": "H",
-        "apiBaseURL": "https://user.intesishome.com/",
+        "apiBaseURL": "https://accloud.intesis.com/",
         "configCacheSeconds": 30
       }
     ]
@@ -30,13 +30,13 @@ Here is an example stanza for your config.json:
 ### Required Options
 
 * `platform` - Must be "IntesisWeb".
-* `username` - This is the username you use to log in to user.intesishome.com.
-* `password` - This is the password you use to log in to user.intesishome.com.
+* `username` - This is the username you use to log in to accloud.intesis.com.
+* `password` - This is the password you use to log in to accloud.intesis.com.
 
 ### Optional Options
 
 * `swingMode` - Whether the swing feature operates on the horizontal or verical vanes. Should be "V" or "H". Defaults to "H".
-* `apiBaseURL` - The URL to the Intesis web site. Defaults to "https://user.intesishome.com/".
+* `apiBaseURL` - The URL to the Intesis web site. Defaults to "https://accloud.intesis.com/".
 * `configCacheSeconds` - The number of seconds to cache the Intesis configuration for. This prevents the plugin from constantly scraping their website. The default value is 30.
 
 ## Known Issues
