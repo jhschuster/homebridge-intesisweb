@@ -38,6 +38,7 @@ Here is an example stanza for your config.json:
 * `swingMode` - Whether the swing feature operates on the horizontal or vertical vanes. Should be "V" or "H". Defaults to "H".
 * `apiBaseURL` - The URL to the Intesis web site. Defaults to "https://accloud.intesis.com/".
 * `configCacheSeconds` - The number of seconds to cache the Intesis configuration for. This prevents the plugin from constantly scraping their website. The default value is 30.
+* `defaultTemperature` - The temperature in Celsius to default the current temperature to if the temperature is not available from scraping the web page. The default value is 0. Apparently you can disable the Intesis's reporting of the temperature, but HomeKit's HeaterCooler service requires a CurrentTemperature characteristic.
 
 ## Known Issues
 

@@ -53,6 +53,7 @@ IntesisWeb.prototype = {
 	this.password = config["password"];
 	this.configCacheSeconds = config["configCacheSeconds"] || 30;
 	this.swingMode = config["swingMode"] || "H";
+	this.defaultCurrentTemp = config["defaultTemperature"] || 0;
 	this.accessories = [];
 	this.deviceDictionary = {};
 	this.lastLogin = null;
@@ -197,6 +198,14 @@ IntesisWeb.prototype = {
 		"value":
 		    parseInt(body.match(/var selectedfanspeed = (\d);/)[1], 10)
 	    },
+	    "currentTemp": {
+		"service_name": "currentTemp",
+		"user_id": user_id,
+		"units": null,
+		"raw_value": null,
+		"value": null,
+		"defaulted": null
+	    },
 	    "setpointTemp": {
 		"service_name": "setpointTemp",
 		"service_id": 9,
@@ -212,21 +221,22 @@ IntesisWeb.prototype = {
 	 */
 	const current_temp = body.match(/<div class="key_value">([0-9.]+)\&deg;([FC])<\/div>/);
 	if (current_temp) {
-	    services["currentTemp"] = {
-		"service_name": "currentTemp",
-		"user_id": user_id,
-		"units": current_temp[2],
-		"raw_value": current_temp[1],
-		"value": null
-	    };
-	    /*
-	     * Handle Fahrenheit vs. Celsius
-	     */
-	    services.currentTemp.value =
-		services.currentTemp.units.match(/F/)
-		    ? (parseFloat(services.currentTemp.raw_value) - 32) * 5/9
-		    : parseFloat(services.currentTemp.raw_value);
+	    services.currentTemp.units = current_temp[2];
+	    services.currentTemp.raw_value = current_temp[1];
+	    services.currentTemp.defaulted = 0;
 	}
+	else {
+	    services.currentTemp.units = "C";
+	    services.currentTemp.raw_value = this.defaultCurrentTemp;
+	    services.currentTemp.defaulted = 1;
+	}
+	/*
+	 * Handle Fahrenheit vs. Celsius
+	 */
+	services.currentTemp.value =
+	    services.currentTemp.units.match(/F/)
+		? (parseFloat(services.currentTemp.raw_value) - 32) * 5/9
+		: parseFloat(services.currentTemp.raw_value);
 	/*
 	 * Vanes don't exist on all models.
 	 */

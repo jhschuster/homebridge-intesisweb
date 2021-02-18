@@ -44,6 +44,13 @@
 	"minimum": 1,
 	"required": false,
 	"description": "Number of seconds for which to cache data"
+      },
+      "defaultTemperature": {
+	"title": "Default Temperature",
+	"type": "integer",
+	"minimum": 0,
+	"required": false,
+	"description": "Temperature (in Celsius) to default the current temperature to when no reading is available. Defaults to 0."
       }
     }
   },
@@ -56,7 +63,7 @@
 	"expandable": true,
 	"title": "Advanced Settings (Optional)",
 	"description": "These are optional settings that you can adjust if needed. The defaults should work for nearly everyone.",
-	"items": ["apiBaseURL", "configCacheSeconds"]
+	"items": ["apiBaseURL", "configCacheSeconds", "defaultTemperature"]
     }
   ],
   "display": null
