@@ -35,7 +35,7 @@ Here is an example stanza for your config.json:
 
 ### Optional Options
 
-* `swingMode` - Whether the swing feature operates on the horizontal or verical vanes. Should be "V" or "H". Defaults to "H".
+* `swingMode` - Whether the swing feature operates on the horizontal or vertical vanes. Should be "V" or "H". Defaults to "H".
 * `apiBaseURL` - The URL to the Intesis web site. Defaults to "https://accloud.intesis.com/".
 * `configCacheSeconds` - The number of seconds to cache the Intesis configuration for. This prevents the plugin from constantly scraping their website. The default value is 30.
 
@@ -46,5 +46,5 @@ on/off commands out of sync with the mode changing commands. Sometimes
 this means that it will change the mode to "heat" *before* turning
 the device on.
 
-My implentation treats a fan speed of zero as setting it to automatic, but
+My implementation treats a fan speed of zero as setting it to automatic, but
 the Home app treats it as meaning turn off the unit.

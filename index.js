@@ -190,15 +190,6 @@ IntesisWeb.prototype = {
 		"value":
 		    parseInt(body.match(/var selectedUsermode = (\d);/)[1], 10)
 	    },
-	    "currentTemp": {
-		"service_name": "currentTemp",
-		"user_id": user_id,
-		"units":
-		    body.match(/<div class="key_value">[0-9.]+\&deg;([FC])<\/div>/)[1],
-		"raw_value":
-		    body.match(/<div class="key_value">([0-9.]+)\&deg;[FC]<\/div>/)[1],
-		"value": null
-	    },
 	    "fanSpeed": {
 		"service_name": "fanSpeed",
 		"service_id": 4,
@@ -217,7 +208,27 @@ IntesisWeb.prototype = {
 	    }
 	}
 	/*
-	 * Vanes don't exist on all models
+	 * The thermometer can be disabled.
+	 */
+	const current_temp = body.match(/<div class="key_value">([0-9.]+)\&deg;([FC])<\/div>/);
+	if (currentTemp) {
+	    services["currentTemp"] = {
+		"service_name": "currentTemp",
+		"user_id": user_id,
+		"units": current_temp[2],
+		"raw_value": current_temp[1],
+		"value": null
+	    };
+	    /*
+	     * Handle Fahrenheit vs. Celsius
+	     */
+	    services.currentTemp.value =
+		services.currentTemp.units.match(/F/)
+		    ? (parseFloat(services.currentTemp.raw_value) - 32) * 5/9
+		    : parseFloat(services.currentTemp.raw_value);
+	}
+	/*
+	 * Vanes don't exist on all models.
 	 */
 	if (body.match(/var selectedhvane =/)) {
 	    services["horizontalVanes"] = {
@@ -252,13 +263,6 @@ IntesisWeb.prototype = {
 	    }
 	}
 	services.setpointTemp.value = parseFloat(services.setpointTemp.raw_value);
-	/*
-	 * Handle Fahrenheit vs. Celsius
-	 */
-	services.currentTemp.value =
-	    services.currentTemp.units.match(/F/)
-		? (parseFloat(services.currentTemp.raw_value) - 32) * 5/9
-		: parseFloat(services.currentTemp.raw_value);
 	return(services);
     },
 
