@@ -211,7 +211,7 @@ IntesisWeb.prototype = {
 	 * The thermometer can be disabled.
 	 */
 	const current_temp = body.match(/<div class="key_value">([0-9.]+)\&deg;([FC])<\/div>/);
-	if (currentTemp) {
+	if (current_temp) {
 	    services["currentTemp"] = {
 		"service_name": "currentTemp",
 		"user_id": user_id,
