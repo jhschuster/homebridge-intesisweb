@@ -216,22 +216,28 @@ IntesisWeb.prototype = {
 		"value": null
 	    }
 	}
+	services.setpointTemp.value = parseFloat(services.setpointTemp.raw_value);
 	/*
-	 * The thermometer can be disabled.
+	 * The thermometer can be disabled. Allow it to be defaulted.
 	 */
 	const current_temp = body.match(/<div class="key_value">([0-9.]+)\&deg;([FC])<\/div>/);
 	if (current_temp) {
 	    services.currentTemp.units = current_temp[2];
-	    services.currentTemp.raw_value = current_temp[1];
 	    services.currentTemp.defaulted = 0;
+	    services.currentTemp.raw_value = current_temp[1];
 	}
-	else {
+	else if (0 != this.defaultCurrentTemp) {
+	    services.currentTemp.defaulted = 1;
 	    services.currentTemp.units = "C";
 	    services.currentTemp.raw_value = this.defaultCurrentTemp;
-	    services.currentTemp.defaulted = 1;
+	}
+	else {
+	    services.currentTemp.defaulted = 2;
+	    services.currentTemp.units = "C";
+	    services.currentTemp.raw_value = services.setpointTemp.raw_value;
 	}
 	/*
-	 * Handle Fahrenheit vs. Celsius
+	 * Handle Fahrenheit vs. Celsius for currentTemp.
 	 */
 	services.currentTemp.value =
 	    services.currentTemp.units.match(/F/)
@@ -272,7 +278,6 @@ IntesisWeb.prototype = {
 		};
 	    }
 	}
-	services.setpointTemp.value = parseFloat(services.setpointTemp.raw_value);
 	return(services);
     },
 

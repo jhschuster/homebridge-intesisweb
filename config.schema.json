@@ -50,7 +50,7 @@
 	"type": "integer",
 	"minimum": 0,
 	"required": false,
-	"description": "Temperature (in Celsius) to default the current temperature to when no reading is available. Defaults to 0."
+	"description": "Temperature (in Celsius) to default the current temperature to when no reading is available. 0 means use the current set point. Defaults to 0."
       }
     }
   },
