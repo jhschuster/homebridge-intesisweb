@@ -58,19 +58,6 @@ IntesisWeb.prototype = {
 	this.deviceDictionary = {};
 	this.lastLogin = null;
 	this.loggedIn = false;
-	this.refreshConfigCallbackQueue = [];
-	this.callbackRefreshConfigQueue = () => {
-	    var item = this.refreshConfigCallbackQueue.pop();
-	    this.log.debug("callbackRefreshConfigQueue: started.");
-	    while (item) {
-		if (typeof item === "function") {
-		    // this.log(item.toString());
-		    item();
-		}
-		item = this.refreshConfigCallbackQueue.pop();
-	    }
-	    this.log.debug("callbackRefreshConfigQueue: finished.");
-	};
 	this.setupAccessories = function (accessories) {
 	    this.log("Setting up accessories/devices...");
 	    // this.log(accessories);
@@ -170,6 +157,8 @@ IntesisWeb.prototype = {
 	    devices[i].services = states[i];
 	}
 	this.lastConfigFetch = new Date().getTime();
+	this.log.debug("getConfig:");
+	this.log.debug(JSON.stringify(devices, null, 2));
 	return devices;
     },
 
@@ -306,25 +295,22 @@ IntesisWeb.prototype = {
 	this.setupAccessories(this.accessories);
     },
 
-    refreshConfig: async function (name, service, callback) {
-	callback = callback || function () {};
+    refreshConfig: async function () {
 	if (this.lastConfigFetch && (new Date().getTime() - this.lastConfigFetch) / 1000 <= this.configCacheSeconds) {
-	    this.log.debug(`${name}: Using cached data for ${service}`);
-	    callback();
+	    this.log.debug(`Using cached data.`);
 	    return;
 	}
-	this.refreshConfigCallbackQueue.push(callback);
 	if (this.refreshConfigInProgress) {
-	    this.log.debug(`${name}: Config refresh in progress, queueing callback for ${service}`);
+	    this.log.debug(`Config refresh in progress`);
 	    return;
 	}
 	this.refreshConfigInProgress = true;
 	var devices = await this.getConfig();
 	if (!devices) {
-	    this.log(`${name}: Config refresh FAILED for ${service}`);
+	    this.log(`Config refresh FAILED`);
 	    return;
 	}
-	this.log.debug(`${name}: Config refresh successful for ${service}`);
+	this.log.debug(`Config refresh successful`);
 	for (var i = 0, l = devices.length; i < l; i++) {
 	    var device = devices[i];
 	    var name = device.name;
@@ -334,7 +320,6 @@ IntesisWeb.prototype = {
 	    this.deviceDictionary[name].updateData(device);
 	}
 	this.refreshConfigInProgress = false;
-	this.callbackRefreshConfigQueue();
     },
 
     setValue: async function (userID, deviceID, serviceID, value, callback) {
@@ -350,7 +335,6 @@ IntesisWeb.prototype = {
 	    callback("No serviceID supplied.");
 	    return;
 	}
-	callback = callback || function () {};
 	this.log.debug("setValue: " + this.apiBaseURL + "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID);
 	var body = await rp.post({
 		"url": this.apiBaseURL + "device/setVal",
@@ -363,7 +347,7 @@ IntesisWeb.prototype = {
 		}
 	}).catch((err) => {
 	    this.log("POST", "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID, err.statusCode);
-	    return err.body;
+	    callback(err.body, null);
 	});
 	this.log.debug(body);
 	callback(null, body);
@@ -479,15 +463,55 @@ IntesisWebDevice.prototype = {
 	    this.addService(services[serviceName], deviceID, deviceName);
 	}
     },
+
     getServices: function () {
 	return this.services;
     },
+
     updateData: function (newDetails) {
 	if (!newDetails) {
 	    return;
 	}
 	this.details = newDetails;
+	for (var serviceData in newDetails.services) {
+	    switch (serviceData.service_name) {
+		case "power":
+		    this.heaterCoolerService
+			.updateCharacteristic(Characteristic.Active,
+			    this.dataMap.power.homekit[serviceData.value]);
+		    break;
+		case "userMode":
+		    this.heaterCoolerService
+			.updateCharacteristic(Characteristic.TargetHeaterCoolerState,
+			    this.dataMap.userMode.homekit[serviceData.value]);
+		    break;
+		case "fanSpeed":
+		    this.heaterCoolerService
+			.updateCharacteristic(Characteristic.RotationSpeed,
+			    this.dataMap.fanSpeed.homekit[serviceData.value]);
+		    break;
+		case "setpointTemp":
+		    this.heaterCoolerService
+			.updateCharacteristic(Characteristic.CoolingThresholdTemperature,
+			    serviceData.value);
+		    this.heaterCoolerService
+			.updateCharacteristic(Characteristic.HeatingThresholdTemperature,
+			    serviceData.value);
+		    break;
+		case "currentTemp":
+		    this.heaterCoolerService
+			.updateCharacteristic(Characteristic.CurrentTemperature,
+			    serviceData.value);
+		    break;
+		case "swingMode":
+		    this.heaterCoolerService
+			.updateCharacteristic(Characteristic.SwingMode,
+			    this.dataMap.swingMode.homekit(serviceData.value));
+		    break;
+	    }
+	}
     },
+
     addService: function (service, deviceID, deviceName) {
 	const serviceName = service.service_name;
 	const serviceID = service.service_id;
@@ -498,18 +522,17 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .getCharacteristic(Characteristic.Active)
 		    .on("get", callback => {
-			this.platform.refreshConfig(deviceName, serviceName, () => {
-			    callback(null, this.dataMap.power.homekit[this.details.services.power.value]);
-			});
+			this.platform.refreshConfig();
+			callback(null, this.dataMap.power.homekit[this.details.services.power.value]);
 		    })
 		    .on("set", (value, callback) => {
 			let intesisValue = this.dataMap.power.intesis(value);
 			this.log(`${deviceName}: ${serviceName} SET`, value, intesisValue);
-			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (error, value) => {
-			    if (!error) {
+			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (err, value) => {
+			    if (!err) {
 				this.details.services.power.value = intesisValue;
 			    }
-			    callback();
+			    callback(err);
 			});
 		    });
 		break;
@@ -518,18 +541,17 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .getCharacteristic(Characteristic.TargetHeaterCoolerState)
 		    .on("get", callback => {
-			this.platform.refreshConfig(deviceName, serviceName, () => {
-			    callback(null, this.dataMap.userMode.homekit[this.details.services.userMode.value]);
-			});
+			this.platform.refreshConfig();
+			callback(null, this.dataMap.userMode.homekit[this.details.services.userMode.value]);
 		    })
 		    .on("set", (value, callback) => {
 			let intesisValue = this.dataMap.userMode.intesis(value);
 			this.log.debug(`${deviceName}: ${serviceName} SET`, value, intesisValue);
-			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (error, value) => {
-			    if (!error) {
+			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (err, value) => {
+			    if (!err) {
 				this.details.services.userMode.value = intesisValue;
 			    }
-			    callback();
+			    callback(err);
 			});
 		    });
 		break;
@@ -543,18 +565,17 @@ IntesisWebDevice.prototype = {
 			"minStep": 1
 		    })
 		    .on("get", callback => {
-			this.platform.refreshConfig(deviceName, serviceName, () => {
-			    callback(null, this.dataMap.fanSpeed.homekit[this.details.services.fanSpeed.value]);
-			});
+			this.platform.refreshConfig();
+			callback(null, this.dataMap.fanSpeed.homekit[this.details.services.fanSpeed.value]);
 		    })
 		    .on("set", (value, callback) => {
 			let intesisValue = this.dataMap.fanSpeed.intesis[value];
 			this.log.debug(`${deviceName}: ${serviceName} SET`, value, intesisValue);
-			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (error, value) => {
-			    if (!error) {
+			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (err, value) => {
+			    if (!err) {
 				this.details.services.fanSpeed.value = intesisValue;
 			    }
-			    callback();
+			    callback(err);
 			});
 		    });
 		break;
@@ -583,20 +604,18 @@ IntesisWebDevice.prototype = {
 			"minStep": step
 		    })
 		    .on("get", callback => {
-			this.platform.refreshConfig(deviceName, `${serviceName} cool`, () => {
-			    callback(null, this.details.services.setpointTemp.value);
-			});
+			this.platform.refreshConfig();
+			callback(null, this.details.services.setpointTemp.value);
 		    })
 		    .on("set", (value, callback) => {
 			this.log.debug(`${deviceName}: ${serviceName} cool SET`, value, Math.round(value * 10));
-			this.platform.setValue(userID, deviceID, serviceID, Math.round(value * 10), (error, value) => {
-			    if (!error) {
+			this.platform.setValue(userID, deviceID, serviceID, Math.round(value * 10), (err, value) => {
+			    if (!err) {
 				this.details.services.setpointTemp.value = value;
 			    }
-			    callback();
+			    callback(err);
 			});
-		    })
-		    .updateValue(this.targetTemperature);
+		    });
 
 		this.heaterCoolerService
 		    .addCharacteristic(Characteristic.HeatingThresholdTemperature)
@@ -606,49 +625,44 @@ IntesisWebDevice.prototype = {
 			"minStep": step
 		    })
 		    .on("get", callback => {
-			this.platform.refreshConfig(deviceName, `${serviceName} heat`, () => {
-			    callback(null, this.details.services.setpointTemp.value);
-			});
+			this.platform.refreshConfig();
+			callback(null, this.details.services.setpointTemp.value);
 		    })
 		    .on("set", (value, callback) => {
 			this.log.debug(`${deviceName}: ${serviceName} heat SET`, value, Math.round(value * 10));
-			this.platform.setValue(userID, deviceID, serviceID, Math.round(value * 10), (error, value) => {
-			    if (!error) {
+			this.platform.setValue(userID, deviceID, serviceID, Math.round(value * 10), (err, value) => {
+			    if (!err) {
 				this.details.services.setpointTemp.value = value;
 			    }
-			    callback();
+			    callback(err);
 			});
-		    })
-		    .updateValue(this.targetTemperature);
+		    });
 		break;
 
 	    case "currentTemp":
 		this.heaterCoolerService
 		    .getCharacteristic(Characteristic.CurrentTemperature)
 		    .on("get", callback => {
-			this.platform.refreshConfig(deviceName, serviceName, () => {
-			    callback(null, this.details.services.currentTemp.value);
-			});
-		    })
-		    .updateValue(this.details.services.currentTemp.value);
+			this.platform.refreshConfig();
+			callback(null, this.details.services.currentTemp.value);
+		    });
 		break;
 
 	    case "swingMode":
 		this.heaterCoolerService
 		    .getCharacteristic(Characteristic.SwingMode)
 		    .on("get", callback => {
-			this.platform.refreshConfig(deviceName, serviceName, () => {
-			    callback(null, this.dataMap.swingMode.homekit(this.details.services.swingMode.value));
-			});
+			this.platform.refreshConfig();
+			callback(null, this.dataMap.swingMode.homekit(this.details.services.swingMode.value));
 		    })
 		    .on("set", (value, callback) => {
 			let intesisValue = this.dataMap.swingMode.intesis(value);
 			this.log.debug(`${deviceName}: ${serviceName} SET`, value, intesisValue);
-			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (error, value) => {
-			    if (!error) {
+			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (err, value) => {
+			    if (!err) {
 				this.details.services.swingMode.value = intesisValue;
 			    }
-			    callback();
+			    callback(err);
 			});
 		    });
 		break;
