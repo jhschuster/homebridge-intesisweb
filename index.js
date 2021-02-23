@@ -40,12 +40,12 @@ module.exports = function (homebridge) {
 function IntesisWeb(log, config) {
     this.log = log;
     this.config = config;
-    this.log("IntesisWeb(log, config) called.");
+    this.log.debug("IntesisWeb(log, config) called.");
 }
 
 IntesisWeb.prototype = {
     accessories: function (callback) {
-	this.log("IntesisWeb.accessories(callback) called.");
+	this.log.debug("IntesisWeb.accessories(callback) called.");
 	const config = this.config;
 	this.apiBaseURL = config["apiBaseURL"] || "https://accloud.intesis.com/";
 	this.apiBaseURL = this.apiBaseURL.lastIndexOf("/") == this.apiBaseURL.length - 1 ? this.apiBaseURL : this.apiBaseURL + "/";
@@ -61,7 +61,7 @@ IntesisWeb.prototype = {
 	this.refreshConfigCallbackQueue = [];
 	this.callbackRefreshConfigQueue = () => {
 	    var item = this.refreshConfigCallbackQueue.pop();
-	    this.log("callbackRefreshConfigQueue: started.");
+	    this.log.debug("callbackRefreshConfigQueue: started.");
 	    while (item) {
 		if (typeof item === "function") {
 		    // this.log(item.toString());
@@ -69,7 +69,7 @@ IntesisWeb.prototype = {
 		}
 		item = this.refreshConfigCallbackQueue.pop();
 	    }
-	    this.log("callbackRefreshConfigQueue: finished.");
+	    this.log.debug("callbackRefreshConfigQueue: finished.");
 	};
 	this.setupAccessories = function (accessories) {
 	    this.log("Setting up accessories/devices...");
@@ -80,9 +80,9 @@ IntesisWeb.prototype = {
     },
 
     doLogin: async function () {
-	this.log("IntesisWeb.doLogin() called.");
+	this.log.debug("IntesisWeb.doLogin() called.");
 	var body = await rp.get(this.apiBaseURL + "login");
-	this.log("GET /login OK");
+	this.log.debug("GET /login OK");
 	const csrf = body.match(/signin\[_csrf_token\]" value="([^"]+)"/)[1];
 	body = await rp.post({
 		"url": this.apiBaseURL + "login",
@@ -100,7 +100,7 @@ IntesisWeb.prototype = {
 	    this.loggedIn = false;
 	}
 	else {
-	    this.log("POST /login OK");
+	    this.log.debug("POST /login OK");
 	    this.lastLogin = new Date().getTime();
 	    this.loggedIn = true;
 	}
@@ -108,7 +108,7 @@ IntesisWeb.prototype = {
     },
 
     getHeaders: async function () {
-	this.log("IntesisWeb.getHeaders() called.");
+	this.log.debug("IntesisWeb.getHeaders() called.");
 	var body = await rp.get(this.apiBaseURL + "panel/headers")
 	    .catch((err) => {
 		this.log("GET /panel/headers", err.statusCode);
@@ -120,16 +120,16 @@ IntesisWeb.prototype = {
 	    return null;  // Error. Not sure what to do. Try logging in again.
 	}
 	else if (body.match(/<title>/)) {
-	    this.log("GET /panel/headers LOGIN");
+	    this.log.debug("GET /panel/headers LOGIN");
 	    this.loggedIn = false;
 	    return null;  // Got the login page; try logging in again.
 	}
-	this.log("GET /panel/headers OK");
+	this.log.debug("GET /panel/headers OK");
 	return body;
     },
 
     getConfig: async function () {
-	this.log("IntesisWeb.getConfig() called.");
+	this.log.debug("IntesisWeb.getConfig() called.");
 	var body;
 	while (!body) {
 	    if (!this.loggedIn && !await this.doLogin()) {
@@ -157,10 +157,11 @@ IntesisWeb.prototype = {
 		return rp.get(this.apiBaseURL
 			+ "panel/vista?id=" + device.device_id)
 		    .then((body) => {
+			this.log.debug("/panel/vista?id=" + device.device_id, "OK");
 			return this.getDeviceStateFromVista(body);
 		    })
 		    .catch((err) => {
-			this.log("panel/vista?id=", err.statusCode);
+			this.log("/panel/vista?id=" + device.device_id, err.statusCode);
 			this.log(err);
 			return null;
 		    });
@@ -169,8 +170,6 @@ IntesisWeb.prototype = {
 	    devices[i].services = states[i];
 	}
 	this.lastConfigFetch = new Date().getTime();
-	this.log("getConfig:");
-	this.log(JSON.stringify(devices, null, 2));
 	return devices;
     },
 
@@ -310,13 +309,13 @@ IntesisWeb.prototype = {
     refreshConfig: async function (name, service, callback) {
 	callback = callback || function () {};
 	if (this.lastConfigFetch && (new Date().getTime() - this.lastConfigFetch) / 1000 <= this.configCacheSeconds) {
-	    this.log(`${name}: Using cached data for ${service}`);
+	    this.log.debug(`${name}: Using cached data for ${service}`);
 	    callback();
 	    return;
 	}
 	this.refreshConfigCallbackQueue.push(callback);
 	if (this.refreshConfigInProgress) {
-	    this.log(`${name}: Config refresh in progress, queueing callback for ${service}`);
+	    this.log.debug(`${name}: Config refresh in progress, queueing callback for ${service}`);
 	    return;
 	}
 	this.refreshConfigInProgress = true;
@@ -325,7 +324,7 @@ IntesisWeb.prototype = {
 	    this.log(`${name}: Config refresh FAILED for ${service}`);
 	    return;
 	}
-	this.log(`${name}: Config refresh successful for ${service}`);
+	this.log.debug(`${name}: Config refresh successful for ${service}`);
 	for (var i = 0, l = devices.length; i < l; i++) {
 	    var device = devices[i];
 	    var name = device.name;
@@ -352,7 +351,7 @@ IntesisWeb.prototype = {
 	    return;
 	}
 	callback = callback || function () {};
-	this.log("setValue: " + this.apiBaseURL + "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID);
+	this.log.debug("setValue: " + this.apiBaseURL + "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID);
 	var body = await rp.post({
 		"url": this.apiBaseURL + "device/setVal",
 		"headers": { "X_Requested_With": "XMLHttpRequest" },
@@ -363,10 +362,10 @@ IntesisWeb.prototype = {
 		    "userId": userID
 		}
 	}).catch((err) => {
-	    this.log("POST /device/setVal", err.statusCode);
+	    this.log("POST", "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID, err.statusCode);
 	    return err.body;
 	});
-	this.log(body);
+	this.log.debug(body);
 	callback(null, body);
     }
 }
@@ -525,7 +524,7 @@ IntesisWebDevice.prototype = {
 		    })
 		    .on("set", (value, callback) => {
 			let intesisValue = this.dataMap.userMode.intesis(value);
-			this.log(`${deviceName}: ${serviceName} SET`, value, intesisValue);
+			this.log.debug(`${deviceName}: ${serviceName} SET`, value, intesisValue);
 			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (error, value) => {
 			    if (!error) {
 				this.details.services.userMode.value = intesisValue;
@@ -550,7 +549,7 @@ IntesisWebDevice.prototype = {
 		    })
 		    .on("set", (value, callback) => {
 			let intesisValue = this.dataMap.fanSpeed.intesis[value];
-			this.log(`${deviceName}: ${serviceName} SET`, value, intesisValue);
+			this.log.debug(`${deviceName}: ${serviceName} SET`, value, intesisValue);
 			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (error, value) => {
 			    if (!error) {
 				this.details.services.fanSpeed.value = intesisValue;
@@ -589,7 +588,7 @@ IntesisWebDevice.prototype = {
 			});
 		    })
 		    .on("set", (value, callback) => {
-			this.log(`${deviceName}: ${serviceName} cool SET`, value, Math.round(value * 10));
+			this.log.debug(`${deviceName}: ${serviceName} cool SET`, value, Math.round(value * 10));
 			this.platform.setValue(userID, deviceID, serviceID, Math.round(value * 10), (error, value) => {
 			    if (!error) {
 				this.details.services.setpointTemp.value = value;
@@ -612,7 +611,7 @@ IntesisWebDevice.prototype = {
 			});
 		    })
 		    .on("set", (value, callback) => {
-			this.log(`${deviceName}: ${serviceName} heat SET`, value, Math.round(value * 10));
+			this.log.debug(`${deviceName}: ${serviceName} heat SET`, value, Math.round(value * 10));
 			this.platform.setValue(userID, deviceID, serviceID, Math.round(value * 10), (error, value) => {
 			    if (!error) {
 				this.details.services.setpointTemp.value = value;
@@ -644,7 +643,7 @@ IntesisWebDevice.prototype = {
 		    })
 		    .on("set", (value, callback) => {
 			let intesisValue = this.dataMap.swingMode.intesis(value);
-			this.log(`${deviceName}: ${serviceName} SET`, value, intesisValue);
+			this.log.debug(`${deviceName}: ${serviceName} SET`, value, intesisValue);
 			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (error, value) => {
 			    if (!error) {
 				this.details.services.swingMode.value = intesisValue;
