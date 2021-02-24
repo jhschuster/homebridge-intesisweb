@@ -1,6 +1,6 @@
 {
   "name": "homebridge-intesisweb",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "Homebridge plugin for the IntesisHome, using their web interface.",
   "main": "index.js",
   "scripts": {
@@ -14,9 +14,9 @@
     "intesis"
   ],
   "author": {
-      "name": "Jay Schuster",
-      "email": "jay@pcc.com",
-      "url": "https://github.com/jhschuster"
+    "name": "Jay Schuster",
+    "email": "jay@pcc.com",
+    "url": "https://github.com/jhschuster"
   },
   "license": "MIT",
   "engines": {
@@ -24,8 +24,8 @@
     "node": ">=0.12.0"
   },
   "dependencies": {
-    "request": "^2.88.0",
-    "request-promise-native": "^1.0.7"
+    "got": "^11.8.1",
+    "tough-cookie": "^4.0.0"
   },
   "deprecated": false,
   "repository": {

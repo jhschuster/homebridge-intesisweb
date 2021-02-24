@@ -26,7 +26,8 @@
  */
 
 var Service, Characteristic;
-const rp = require("request-promise-native").defaults({jar: true});
+const tough = require('tough-cookie');
+const got = require("got");
 
 module.exports = function (homebridge) {
     Service = homebridge.hap.Service;
@@ -47,8 +48,6 @@ IntesisWeb.prototype = {
     accessories: function (callback) {
 	this.log.debug("IntesisWeb.accessories(callback) called.");
 	const config = this.config;
-	this.apiBaseURL = config["apiBaseURL"] || "https://accloud.intesis.com/";
-	this.apiBaseURL = this.apiBaseURL.lastIndexOf("/") == this.apiBaseURL.length - 1 ? this.apiBaseURL : this.apiBaseURL + "/";
 	this.username = config["username"];
 	this.password = config["password"];
 	this.configCacheSeconds = config["configCacheSeconds"] || 30;
@@ -58,9 +57,17 @@ IntesisWeb.prototype = {
 	this.deviceDictionary = {};
 	this.lastLogin = null;
 	this.loggedIn = false;
+	this.cookieJar = new tough.CookieJar();
+	this.got = got.extend({
+	    prefixUrl: config["apiBaseURL"] || "https://accloud.intesis.com/",
+	    resolveBodyOnly: true,
+	    headers: {
+		// 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15'
+		'user-agent': undefined
+	    }
+	});
 	this.setupAccessories = function (accessories) {
 	    this.log("Setting up accessories/devices...");
-	    // this.log(accessories);
 	    callback(accessories);
 	};
 	this.instantiateAccessories();
@@ -68,20 +75,34 @@ IntesisWeb.prototype = {
 
     doLogin: async function () {
 	this.log.debug("IntesisWeb.doLogin() called.");
-	var body = await rp.get(this.apiBaseURL + "login");
+	var body = await this.got
+	    .get("login", {cookieJar: this.cookieJar})
+	    .catch((err) => {
+		this.log("GET /login", err.name, err.response.statusCode);
+		return null;
+	    });
+	if (!body) {
+	    this.log("Login failed. Giving up.");
+	    this.loggedIn = false;
+	    return this.loggedIn;
+	}
 	this.log.debug("GET /login OK");
 	const csrf = body.match(/signin\[_csrf_token\]" value="([^"]+)"/)[1];
-	body = await rp.post({
-		"url": this.apiBaseURL + "login",
-		"form": {
-		    "signin[username]": this.username,
-		    "signin[password]": this.password,
-		    "signin[_csrf_token]": csrf
-		}
-	}).catch((err) => {
-	    this.log("POST /login", err.statusCode);
-	    return 302 == err.statusCode ? err.response.body : null;
-	});
+	body = await this.got
+	    .post({
+		    "url": "login",
+		    "form": {
+			"signin[username]": this.username,
+			"signin[password]": this.password,
+			"signin[_csrf_token]": csrf
+		    }
+		},
+		{cookieJar: this.cookieJar}
+	    )
+	    .catch((err) => {
+		this.log("POST /login", err.name, err.response.statusCode);
+		return 302 == err.response.statusCode ? err.response.body : null;
+	    });
 	if (!body) {
 	    this.log("Login failed. Giving up.");
 	    this.loggedIn = false;
@@ -96,22 +117,24 @@ IntesisWeb.prototype = {
 
     getHeaders: async function () {
 	this.log.debug("IntesisWeb.getHeaders() called.");
-	var body = await rp.get(this.apiBaseURL + "panel/headers")
+	const body = await this.got
+	    .get("panel/headers", {cookieJar: this.cookieJar})
 	    .catch((err) => {
-		this.log("GET /panel/headers", err.statusCode);
-		this.log(err);
+		this.log("GET /panel/headers", err.name, err.response.statusCode);
 		return null;
 	    });
 	if (!body) {
 	    this.loggedIn = false;
-	    return null;  // Error. Not sure what to do. Try logging in again.
+	    // Error. Not sure what to do. Try logging in again.
 	}
 	else if (body.match(/<title>/)) {
 	    this.log.debug("GET /panel/headers LOGIN");
 	    this.loggedIn = false;
-	    return null;  // Got the login page; try logging in again.
+	    body = null;  // Got the login page; try logging in again.
 	}
-	this.log.debug("GET /panel/headers OK");
+	else {
+	    this.log.debug("GET /panel/headers OK");
+	}
 	return body;
     },
 
@@ -141,15 +164,14 @@ IntesisWeb.prototype = {
 	}
 	var states = await Promise.all(
 	    devices.map(async function (device) {
-		return rp.get(this.apiBaseURL
-			+ "panel/vista?id=" + device.device_id)
+		return this.got
+		    .get("panel/vista?id=" + device.device_id, {cookieJar: this.cookieJar})
 		    .then((body) => {
 			this.log.debug("/panel/vista?id=" + device.device_id, "OK");
 			return this.getDeviceStateFromVista(body);
 		    })
 		    .catch((err) => {
-			this.log("/panel/vista?id=" + device.device_id, err.statusCode);
-			this.log(err);
+			this.log("/panel/vista?id=" + device.device_id, err.name, err.response.statusCode);
 			return null;
 		    });
 	    }.bind(this)));
@@ -335,20 +357,24 @@ IntesisWeb.prototype = {
 	    callback("No serviceID supplied.");
 	    return;
 	}
-	this.log.debug("setValue: " + this.apiBaseURL + "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID);
-	var body = await rp.post({
-		"url": this.apiBaseURL + "device/setVal",
-		"headers": { "X_Requested_With": "XMLHttpRequest" },
-		"qs": {
-		    "id": deviceID,
-		    "uid": serviceID,
-		    "value": value,
-		    "userId": userID
-		}
-	}).catch((err) => {
-	    this.log("POST", "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID, err.statusCode);
-	    callback(err.body, null);
-	});
+	this.log.debug("setValue:", "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID);
+	var body = await this.got
+	    .post({
+		    "url": "device/setVal",
+		    "headers": { "X_Requested_With": "XMLHttpRequest" },
+		    "qs": {
+			"id": deviceID,
+			"uid": serviceID,
+			"value": value,
+			"userId": userID
+		    }
+		},
+		{cookieJar: this.cookieJar}
+	    )
+	    .catch((err) => {
+		this.log("POST", "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID, err.name, err.response.statusCode);
+		callback(err.body, null);
+	    });
 	this.log.debug(body);
 	callback(null, body);
     }
