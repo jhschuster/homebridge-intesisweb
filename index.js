@@ -78,7 +78,7 @@ IntesisWeb.prototype = {
 	var body = await this.got
 	    .get("login", {cookieJar: this.cookieJar})
 	    .catch((err) => {
-		this.log("GET /login", err.name, err.response.statusCode);
+		this.log("GET /login", err.name, err.response ? err.response.statusCode : "");
 		return null;
 	    });
 	if (!body) {
@@ -100,8 +100,8 @@ IntesisWeb.prototype = {
 		{cookieJar: this.cookieJar}
 	    )
 	    .catch((err) => {
-		this.log("POST /login", err.name, err.response.statusCode);
-		return 302 == err.response.statusCode ? err.response.body : null;
+		this.log("POST /login", err.name, err.response ? err.response.statusCode : "");
+		return err.response && 302 == err.response.statusCode ? err.response.body : null;
 	    });
 	if (!body) {
 	    this.log("Login failed. Giving up.");
@@ -120,7 +120,7 @@ IntesisWeb.prototype = {
 	const body = await this.got
 	    .get("panel/headers", {cookieJar: this.cookieJar})
 	    .catch((err) => {
-		this.log("GET /panel/headers", err.name, err.response.statusCode);
+		this.log("GET /panel/headers", err.name, err.response ? err.response.statusCode : "");
 		return null;
 	    });
 	if (!body) {
@@ -171,7 +171,7 @@ IntesisWeb.prototype = {
 			return this.getDeviceStateFromVista(body);
 		    })
 		    .catch((err) => {
-			this.log("/panel/vista?id=" + device.device_id, err.name, err.response.statusCode);
+			this.log("/panel/vista?id=" + device.device_id, err.name, err.response ? err.response.statusCode : "");
 			return null;
 		    });
 	    }.bind(this)));
@@ -372,7 +372,7 @@ IntesisWeb.prototype = {
 		{cookieJar: this.cookieJar}
 	    )
 	    .catch((err) => {
-		this.log("POST", "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID, err.name, err.response.statusCode);
+		this.log("POST", "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID, err.name, err.response ? err.response.statusCode : "");
 		callback(err.body, null);
 	    });
 	this.log.debug(body);
