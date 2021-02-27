@@ -319,20 +319,21 @@ IntesisWeb.prototype = {
 
     refreshConfig: async function () {
 	if (this.lastConfigFetch && (new Date().getTime() - this.lastConfigFetch) / 1000 <= this.configCacheSeconds) {
-	    this.log.debug(`Using cached data.`);
+	    this.log.debug("Using cached data.");
 	    return;
 	}
 	if (this.refreshConfigInProgress) {
-	    this.log.debug(`Config refresh in progress`);
+	    this.log.debug("Config refresh in progress");
 	    return;
 	}
 	this.refreshConfigInProgress = true;
 	var devices = await this.getConfig();
 	if (!devices) {
-	    this.log(`Config refresh FAILED`);
+	    this.log("Config refresh FAILED");
+	    this.refreshConfigInProgress = false;
 	    return;
 	}
-	this.log.debug(`Config refresh successful`);
+	this.log.debug("Config refresh successful");
 	for (var i = 0, l = devices.length; i < l; i++) {
 	    var device = devices[i];
 	    var name = device.name;
@@ -560,7 +561,8 @@ IntesisWebDevice.prototype = {
 			    }
 			    callback(err);
 			});
-		    });
+		    })
+		    .updateValue(this.dataMap.power.homekit[service.value]);
 		break;
 
 	    case "userMode":
@@ -579,7 +581,8 @@ IntesisWebDevice.prototype = {
 			    }
 			    callback(err);
 			});
-		    });
+		    })
+		    .updateValue(this.dataMap.userMode.homekit[service.value]);
 		break;
 
 	    case "fanSpeed":
@@ -603,7 +606,8 @@ IntesisWebDevice.prototype = {
 			    }
 			    callback(err);
 			});
-		    });
+		    })
+		    .updateValue(this.dataMap.fanSpeed.homekit[service.value]);
 		break;
 
 	    case "setpointTemp":
@@ -641,7 +645,8 @@ IntesisWebDevice.prototype = {
 			    }
 			    callback(err);
 			});
-		    });
+		    })
+		    .updateValue(service.value);
 
 		this.heaterCoolerService
 		    .addCharacteristic(Characteristic.HeatingThresholdTemperature)
@@ -662,7 +667,8 @@ IntesisWebDevice.prototype = {
 			    }
 			    callback(err);
 			});
-		    });
+		    })
+		    .updateValue(service.value);
 		break;
 
 	    case "currentTemp":
@@ -671,7 +677,8 @@ IntesisWebDevice.prototype = {
 		    .on("get", callback => {
 			this.platform.refreshConfig();
 			callback(null, this.details.services.currentTemp.value);
-		    });
+		    })
+		    .updateValue(service.value);
 		break;
 
 	    case "swingMode":
@@ -690,7 +697,8 @@ IntesisWebDevice.prototype = {
 			    }
 			    callback(err);
 			});
-		    });
+		    })
+		    .updateValue(this.dataMap.swingMode.homekit(service.value));
 		break;
 	}
     }
