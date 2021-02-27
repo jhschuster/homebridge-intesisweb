@@ -57,6 +57,7 @@ IntesisWeb.prototype = {
 	this.deviceDictionary = {};
 	this.lastLogin = null;
 	this.loggedIn = false;
+	this.refreshConfigInProgress = false;
 	this.cookieJar = new tough.CookieJar();
 	this.got = got.extend({
 	    prefixUrl: config["apiBaseURL"] || "https://accloud.intesis.com/",
@@ -317,23 +318,24 @@ IntesisWeb.prototype = {
 	this.setupAccessories(this.accessories);
     },
 
-    refreshConfig: async function () {
+    refreshConfig: async function (msg) {
 	if (this.lastConfigFetch && (new Date().getTime() - this.lastConfigFetch) / 1000 <= this.configCacheSeconds) {
-	    this.log.debug("Using cached data.");
+	    this.log.debug(`${msg}: Using cached data.`);
 	    return;
 	}
 	if (this.refreshConfigInProgress) {
-	    this.log.debug("Config refresh in progress");
+	    this.log.debug(`${msg}: Refresh in progress.`);
 	    return;
 	}
 	this.refreshConfigInProgress = true;
+	this.log.debug(`${msg}: Refreshing.`);
 	var devices = await this.getConfig();
 	if (!devices) {
-	    this.log("Config refresh FAILED");
+	    this.log(`${msg}: Refresh FAILED.`);
 	    this.refreshConfigInProgress = false;
 	    return;
 	}
-	this.log.debug("Config refresh successful");
+	this.log.debug(`${msg}: Refresh successful.`);
 	for (var i = 0, l = devices.length; i < l; i++) {
 	    var device = devices[i];
 	    var name = device.name;
@@ -549,7 +551,7 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .getCharacteristic(Characteristic.Active)
 		    .on("get", callback => {
-			this.platform.refreshConfig();
+			this.platform.refreshConfig("power");
 			callback(null, this.dataMap.power.homekit[this.details.services.power.value]);
 		    })
 		    .on("set", (value, callback) => {
@@ -569,7 +571,7 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .getCharacteristic(Characteristic.TargetHeaterCoolerState)
 		    .on("get", callback => {
-			this.platform.refreshConfig();
+			this.platform.refreshConfig("userMode");
 			callback(null, this.dataMap.userMode.homekit[this.details.services.userMode.value]);
 		    })
 		    .on("set", (value, callback) => {
@@ -594,7 +596,7 @@ IntesisWebDevice.prototype = {
 			"minStep": 1
 		    })
 		    .on("get", callback => {
-			this.platform.refreshConfig();
+			this.platform.refreshConfig("fanSpeed");
 			callback(null, this.dataMap.fanSpeed.homekit[this.details.services.fanSpeed.value]);
 		    })
 		    .on("set", (value, callback) => {
@@ -634,7 +636,7 @@ IntesisWebDevice.prototype = {
 			"minStep": step
 		    })
 		    .on("get", callback => {
-			this.platform.refreshConfig();
+			this.platform.refreshConfig("setpointTemp cool");
 			callback(null, this.details.services.setpointTemp.value);
 		    })
 		    .on("set", (value, callback) => {
@@ -656,7 +658,7 @@ IntesisWebDevice.prototype = {
 			"minStep": step
 		    })
 		    .on("get", callback => {
-			this.platform.refreshConfig();
+			this.platform.refreshConfig("setpointTemp heat");
 			callback(null, this.details.services.setpointTemp.value);
 		    })
 		    .on("set", (value, callback) => {
@@ -675,7 +677,7 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .getCharacteristic(Characteristic.CurrentTemperature)
 		    .on("get", callback => {
-			this.platform.refreshConfig();
+			this.platform.refreshConfig("currentTemp");
 			callback(null, this.details.services.currentTemp.value);
 		    })
 		    .updateValue(service.value);
@@ -685,7 +687,7 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .getCharacteristic(Characteristic.SwingMode)
 		    .on("get", callback => {
-			this.platform.refreshConfig();
+			this.platform.refreshConfig("swingMode");
 			callback(null, this.dataMap.swingMode.homekit(this.details.services.swingMode.value));
 		    })
 		    .on("set", (value, callback) => {
