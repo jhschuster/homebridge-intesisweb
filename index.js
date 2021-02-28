@@ -93,8 +93,8 @@ IntesisWeb.prototype = {
 	const csrf = body.match(/signin\[_csrf_token\]" value="([^"]+)"/)[1];
 	body = await this.got
 	    .post({
-		    "url": "login",
-		    "form": {
+		    url: "login",
+		    form: {
 			"signin[username]": this.username,
 			"signin[password]": this.password,
 			"signin[_csrf_token]": csrf
@@ -155,9 +155,9 @@ IntesisWeb.prototype = {
 	var devices = [ ];
 	while ((matches = re.exec(body)) !== null) {
 	    devices.push({
-		"device_id": matches[1],
-		"name": matches[2],
-		"services": null
+		device_id: matches[1],
+		name: matches[2],
+		services: null
 	    });
 	}
 	if (0 == devices.length) {
@@ -194,43 +194,43 @@ IntesisWeb.prototype = {
     getDeviceStateFromVista: function (body) {
 	const user_id = body.match(/\&userId=(\d+)/)[1];
 	var services = {
-	    "power": {
-		"service_name": "power",
-		"service_id": 1,
-		"user_id": user_id,
-		"value":
+	    power: {
+		service_name: "power",
+		service_id: 1,
+		user_id: user_id,
+		value:
 		    parseInt(body.match(/var selectedOnOff = (\d);/)[1], 10)
 	    },
-	    "userMode": {
-		"service_name": "userMode",
-		"service_id": 2,
-		"user_id": user_id,
-		"value":
+	    userMode: {
+		service_name: "userMode",
+		service_id: 2,
+		user_id: user_id,
+		value:
 		    parseInt(body.match(/var selectedUsermode = (\d);/)[1], 10)
 	    },
-	    "fanSpeed": {
-		"service_name": "fanSpeed",
-		"service_id": 4,
-		"user_id": user_id,
-		"value":
+	    fanSpeed: {
+		service_name: "fanSpeed",
+		service_id: 4,
+		user_id: user_id,
+		value:
 		    parseInt(body.match(/var selectedfanspeed = (\d);/)[1], 10)
 	    },
-	    "currentTemp": {
-		"service_name": "currentTemp",
-		"user_id": user_id,
-		"units": null,
-		"raw_value": null,
-		"value": null,
-		"defaulted": null
+	    currentTemp: {
+		service_name: "currentTemp",
+		user_id: user_id,
+		units: null,
+		raw_value: null,
+		value: null,
+		defaulted: null
 	    },
-	    "setpointTemp": {
-		"service_name": "setpointTemp",
-		"service_id": 9,
-		"user_id": user_id,
-		/* "value": parseInt(body.match(/<span id="setPointFahrenheit_$id" class="">(\d+)<\/span>/)[1], 10) */
-		"raw_value":
+	    setpointTemp: {
+		service_name: "setpointTemp",
+		service_id: 9,
+		user_id: user_id,
+		/* value: parseInt(body.match(/<span id="setPointFahrenheit_$id" class="">(\d+)<\/span>/)[1], 10) */
+		raw_value:
 		    body.match(/setTempCelsiusConsignaHeader\(\d+, '(\d+.\d+)'\);/)[1],
-		"value": null
+		value: null
 	    }
 	}
 	services.setpointTemp.value = parseFloat(services.setpointTemp.raw_value);
@@ -265,33 +265,33 @@ IntesisWeb.prototype = {
 	 */
 	if (body.match(/var selectedhvane =/)) {
 	    services["horizontalVanes"] = {
-		"service_name": "horizontalVanes",
-		"service_id": 6,
-		"user_id": user_id,
-		"value": parseInt(body.match(/var selectedhvane = (\d+);/)[1], 10)
+		service_name: "horizontalVanes",
+		service_id: 6,
+		user_id: user_id,
+		value: parseInt(body.match(/var selectedhvane = (\d+);/)[1], 10)
 	    };
 	    if (this.swingMode != "V") {
 		services["swingMode"] = {
-		    "service_name": "swingMode",
-		    "service_id": 6,
-		    "user_id": user_id,
-		    "value": services.horizontalVanes.value == 10 ? 10 : 0
+		    service_name: "swingMode",
+		    service_id: 6,
+		    user_id: user_id,
+		    value: services.horizontalVanes.value == 10 ? 10 : 0
 		};
 	    }
 	}
 	if (body.match(/var selectedvvane =/)) {
 	    services["verticalVanes"] = {
-		"service_name": "verticalVanes",
-		"service_id": 5,
-		"user_id": user_id,
-		"value": parseInt(body.match(/var selectedvvane = (\d+);/)[1], 10)
+		service_name: "verticalVanes",
+		service_id: 5,
+		user_id: user_id,
+		value: parseInt(body.match(/var selectedvvane = (\d+);/)[1], 10)
 	    };
 	    if (this.swingMode == "V") {
 		services["swingMode"] = {
-		    "service_name": "swingMode",
-		    "service_id": 5,
-		    "user_id": user_id,
-		    "value": services.verticalVanes.value == 10 ? 10 : 0
+		    service_name: "swingMode",
+		    service_id: 5,
+		    user_id: user_id,
+		    value: services.verticalVanes.value == 10 ? 10 : 0
 		};
 	    }
 	}
@@ -369,17 +369,18 @@ IntesisWeb.prototype = {
 	this.log.debug("setValue:", "device/setVal?id=" + deviceID + "&uid=" + serviceID + "&value=" + value + "&userId=" + userID);
 	var body = await this.got
 	    .post({
-		    "url": "device/setVal",
-		    "headers": {
-			"X_Requested_With": "XMLHttpRequest"
-			// "Referer": this.apiBaseURL + "panel"
+		    url: "device/setVal",
+		    headers: {
+			X_Requested_With: "XMLHttpRequest",
+			Referer: this.apiBaseURL + "panel"
 		    },
-		    "qs": {
-			"id": deviceID,
-			"uid": serviceID,
-			"value": value,
-			"userId": userID
-		    }
+		    qs: {
+			id: deviceID,
+			uid: serviceID,
+			value: value,
+			userId: userID
+		    },
+		    body: ""
 		},
 		{cookieJar: this.cookieJar}
 	    )
@@ -405,12 +406,12 @@ IntesisWeb.prototype = {
  */
 function IntesisWebDevice(log, details, platform) {
     this.dataMap = {
-	"power": {
+	power: {
 	    /*
 	     * off on
 	     *	 0  1
 	     */
-	    "intesis": function (homekitValue) {
+	    intesis: function (homekitValue) {
 		let intesisMode;
 		switch (homekitValue) {
 		    case Characteristic.Active.ACTIVE:
@@ -423,17 +424,17 @@ function IntesisWebDevice(log, details, platform) {
 		}
 		return intesisMode;
 	    },
-	    "homekit": [
+	    homekit: [
 		Characteristic.Active.INACTIVE,
 		Characteristic.Active.ACTIVE
 	    ]
 	},
-	"userMode": {
+	userMode: {
 	    /*
 	     * auto heat dry fan cool
 	     *	0    1	  2   3	 4
 	     */
-	    "intesis": function (homekitValue) {
+	    intesis: function (homekitValue) {
 		let intesisMode;
 		switch (homekitValue) {
 		    case Characteristic.TargetHeaterCoolerState.HEAT:
@@ -449,7 +450,7 @@ function IntesisWebDevice(log, details, platform) {
 		}
 		return intesisMode;
 	    },
-	    "homekit": [
+	    homekit: [
 		Characteristic.TargetHeaterCoolerState.AUTO,
 		Characteristic.TargetHeaterCoolerState.HEAT,
 		Characteristic.TargetHeaterCoolerState.AUTO,
@@ -457,15 +458,15 @@ function IntesisWebDevice(log, details, platform) {
 		Characteristic.TargetHeaterCoolerState.COOL
 	    ]
 	},
-	"fanSpeed": {
+	fanSpeed: {
 	    /*
 	     * auto 1 2 3 4
 	     *	 0  1 2 3 4
 	     */
-	    "intesis": [ 0, 1, 2, 3, 4 ],
-	    "homekit": [ 0, 1, 2, 3, 4 ]
+	    intesis: [ 0, 1, 2, 3, 4 ],
+	    homekit: [ 0, 1, 2, 3, 4 ]
 	},
-	"swingMode": {
+	swingMode: {
 	    /*
 	     * H
 	     * auto swing  2 3 4 5 1
@@ -475,11 +476,11 @@ function IntesisWebDevice(log, details, platform) {
 	     * auto swing  6 1 2 3 4 5
 	     *	  0    10  6 1 2 3 4 5
 	     */
-	    "intesis": function (homekitValue) {
+	    intesis: function (homekitValue) {
 		return homekitValue == Characteristic.SwingMode.SWING_ENABLED
 		    ? 10 : 0;
 	    },
-	    "homekit": function (intesisValue) {
+	    homekit: function (intesisValue) {
 		return intesisValue == 10
 		    ? Characteristic.SwingMode.SWING_ENABLED
 		    : Characteristic.SwingMode.SWING_DISABLED;
@@ -611,9 +612,9 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .addCharacteristic(Characteristic.RotationSpeed)
 		    .setProps({
-			"maxValue": 4,
-			"minValue": 0,
-			"minStep": 1
+			maxValue: 4,
+			minValue: 0,
+			minStep: 1
 		    })
 		    .on("get", callback => {
 			this.platform.refreshConfig(`${this.name}: ${serviceName}`);
@@ -653,9 +654,9 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .addCharacteristic(Characteristic.CoolingThresholdTemperature)
 		    .setProps({
-			"maxValue": maxTemp,
-			"minValue": minTemp,
-			"minStep": step
+			maxValue: maxTemp,
+			minValue: minTemp,
+			minStep: step
 		    })
 		    .on("get", callback => {
 			this.platform.refreshConfig(`${this.name}: ${serviceName} cool`);
@@ -677,9 +678,9 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .addCharacteristic(Characteristic.HeatingThresholdTemperature)
 		    .setProps({
-			"maxValue": maxTemp,
-			"minValue": minTemp,
-			"minStep": step
+			maxValue: maxTemp,
+			minValue: minTemp,
+			minStep: step
 		    })
 		    .on("get", callback => {
 			this.platform.refreshConfig(`${this.name}: ${serviceName} heat`);
