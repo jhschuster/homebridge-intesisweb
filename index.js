@@ -59,14 +59,12 @@ IntesisWeb.prototype = {
 	this.loggedIn = false;
 	this.refreshConfigInProgress = false;
 	this.cookieJar = new tough.CookieJar();
-	this.apiBaseURL = config["apiBaseURL"] || "https://accloud.intesis.com/";
-	this.apiBaseURL = this.apiBaseURL.lastIndexOf("/") == this.apiBaseURL.length - 1 ? this.apiBaseURL : this.apiBaseURL + "/";
 	this.got = got.extend({
-	    prefixUrl: this.apiBaseURL,
+	    prefixUrl: config["apiBaseURL"] || "https://accloud.intesis.com/",
 	    resolveBodyOnly: true,
 	    headers: {
-		'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15'
-		// 'user-agent': undefined
+		// 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15'
+		'user-agent': undefined
 	    }
 	});
 	this.setupAccessories = function (accessories) {
@@ -371,16 +369,14 @@ IntesisWeb.prototype = {
 	    .post({
 		    url: "device/setVal",
 		    headers: {
-			X_Requested_With: "XMLHttpRequest",
-			Referer: this.apiBaseURL + "panel"
+			X_Requested_With: "XMLHttpRequest"
 		    },
-		    qs: {
+		    searchParams: {
 			id: deviceID,
 			uid: serviceID,
 			value: value,
 			userId: userID
-		    },
-		    body: ""
+		    }
 		},
 		{cookieJar: this.cookieJar}
 	    )
