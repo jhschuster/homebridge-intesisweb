@@ -131,7 +131,7 @@ IntesisWeb.prototype = {
 	else if (body.match(/<title>/)) {
 	    this.log.debug("GET /panel/headers LOGIN");
 	    this.loggedIn = false;
-	    return(null);  // Got the login page; try logging in again.
+	    return null;  // Got the login page; try logging in again.
 	}
 	this.log.debug("GET /panel/headers OK");
 	return body;
