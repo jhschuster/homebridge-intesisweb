@@ -1,6 +1,6 @@
 {
   "name": "homebridge-intesisweb",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "Homebridge plugin for the IntesisHome, using their web interface.",
   "main": "index.js",
   "scripts": {
