@@ -357,7 +357,7 @@ IntesisWeb.prototype = {
 	    .post({
 		    url: "device/setVal",
 		    headers: {
-			X_Requested_With: "XMLHttpRequest"
+			"X-Requested-With": "XMLHttpRequest"
 		    },
 		    searchParams: {
 			id: deviceID,
