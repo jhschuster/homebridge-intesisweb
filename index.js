@@ -172,6 +172,11 @@ IntesisWeb.prototype = {
 		return this.got
 		    .get("panel/vista?id=" + device.device_id, {cookieJar: this.cookieJar})
 		    .then((body) => {
+			if (body.match(/<title>/)) {
+			    this.log.debug("/panel/vista?id=" + device.device_id + " returned login page; session expired");
+			    this.loggedIn = false;
+			    return null;
+			}
 			this.log.debug("/panel/vista?id=" + device.device_id, "OK");
 			return this.getDeviceStateFromVista(body);
 		    })
@@ -200,23 +205,53 @@ IntesisWeb.prototype = {
     },
 
     getDeviceStateFromVista: function (body) {
-	const user_id = body.match(/\&userId=(\d+)/)[1];
+	// Helper function to safely match and log failures
+	const safeMatch = (pattern, fieldName) => {
+	    const match = body.match(pattern);
+	    if (!match) {
+		this.log.error(`PARSE ERROR: Failed to match pattern for '${fieldName}'`);
+		this.log.error(`Pattern: ${pattern}`);
+		this.log.error(`Response body length: ${body.length} chars`);
+		this.log.error(`Body preview (first 500 chars): ${body.substring(0, 500)}`);
+		return null;
+	    }
+	    return match;
+	};
+
+	// Parse userId
+	const userIdMatch = safeMatch(/\&userId=(\d+)/, 'userId');
+	if (!userIdMatch) return null;
+	const user_id = userIdMatch[1];
+
+	// Parse power state
+	const powerMatch = safeMatch(/var selectedOnOff = (\d);/, 'power (selectedOnOff)');
+	if (!powerMatch) return null;
+
+	// Parse user mode
+	const userModeMatch = safeMatch(/var selectedUsermode = (\d);/, 'userMode (selectedUsermode)');
+	if (!userModeMatch) return null;
+
+	// Parse fan speed
+	const fanSpeedMatch = safeMatch(/var selectedfanspeed = (\d);/, 'fanSpeed (selectedfanspeed)');
+	if (!fanSpeedMatch) return null;
+
+	// Parse setpoint temperature
+	const setpointMatch = safeMatch(/setTempCelsiusConsignaHeader\(\d+, '(\d+.\d+)'\);/, 'setpointTemp (setTempCelsiusConsignaHeader)');
+	if (!setpointMatch) return null;
+
 	let services = {
 	    user_id: user_id,
 	    power: {
 		service_id: 1,
-		value:
-		    parseInt(body.match(/var selectedOnOff = (\d);/)[1], 10)
+		value: parseInt(powerMatch[1], 10)
 	    },
 	    userMode: {
 		service_id: 2,
-		value:
-		    parseInt(body.match(/var selectedUsermode = (\d);/)[1], 10)
+		value: parseInt(userModeMatch[1], 10)
 	    },
 	    fanSpeed: {
 		service_id: 4,
-		value:
-		    parseInt(body.match(/var selectedfanspeed = (\d);/)[1], 10)
+		value: parseInt(fanSpeedMatch[1], 10)
 	    },
 	    currentTemp: {
 		units: null,
@@ -226,9 +261,7 @@ IntesisWeb.prototype = {
 	    },
 	    setpointTemp: {
 		service_id: 9,
-		/* value: parseInt(body.match(/<span id="setPointFahrenheit_$id" class="">(\d+)<\/span>/)[1], 10) */
-		raw_value:
-		    body.match(/setTempCelsiusConsignaHeader\(\d+, '(\d+.\d+)'\);/)[1],
+		raw_value: setpointMatch[1],
 		value: null
 	    }
 	}

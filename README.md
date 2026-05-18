@@ -39,7 +39,7 @@ To install this updated version manually:
 
    # Install the package (replace with actual path)
    sudo hb-service shell
-   npm install /path/to/homebridge-intesisweb-2.0.2.tgz
+   npm install /path/to/homebridge-intesisweb-2.0.x.tgz
    exit
 
    # Start Homebridge
