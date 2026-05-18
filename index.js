@@ -72,6 +72,11 @@ IntesisWeb.prototype = {
 	    callback(accessories);
 	};
 	this.instantiateAccessories();
+	// Start background polling for better performance
+	this.pollingInterval = setInterval(() => {
+	    this.refreshConfig('Background poll');
+	}, (this.configCacheSeconds || 30) * 1000);
+	this.log(`Background polling started (every ${this.configCacheSeconds || 30} seconds)`);
     },
 
     doLogin: async function () {
@@ -377,6 +382,14 @@ IntesisWeb.prototype = {
 	    });
 	this.log.debug(body);
 	callback(body ? undefined : Error("setValue: POST failed"));
+    },
+
+    shutdown: function() {
+	if (this.pollingInterval) {
+	    clearInterval(this.pollingInterval);
+	    this.pollingInterval = null;
+	    this.log("Background polling stopped");
+	}
     }
 }
 
@@ -498,25 +511,37 @@ IntesisWebDevice.prototype = {
 	if (!newDetails) {
 	    return;
 	}
+	const oldDetails = this.details;
 	this.details = newDetails;
 	const services = newDetails.services;
 	for (const serviceName in services) {
 	    const value = services[serviceName].value;
+	    const oldValue = oldDetails.services ? oldDetails.services[serviceName]?.value : null;
+	    const changed = oldValue !== null && oldValue !== value;
 	    switch (serviceName) {
 		case "power":
 		    this.heaterCoolerService
 			.updateCharacteristic(Characteristic.Active,
 			    this.dataMap.power.homekit[value]);
+		    if (changed) {
+			this.log(`${this.name}: Power changed: ${this.dataMap.power.homekit[oldValue]} → ${this.dataMap.power.homekit[value]}`);
+		    }
 		    break;
 		case "userMode":
 		    this.heaterCoolerService
 			.updateCharacteristic(Characteristic.TargetHeaterCoolerState,
 			    this.dataMap.userMode.homekit[value]);
+		    if (changed) {
+			this.log(`${this.name}: Mode changed: ${this.dataMap.userMode.homekit[oldValue]} → ${this.dataMap.userMode.homekit[value]}`);
+		    }
 		    break;
 		case "fanSpeed":
 		    this.heaterCoolerService
 			.updateCharacteristic(Characteristic.RotationSpeed,
 			    this.dataMap.fanSpeed.homekit[value]);
+		    if (changed) {
+			this.log(`${this.name}: Fan speed changed: ${this.dataMap.fanSpeed.homekit[oldValue]} → ${this.dataMap.fanSpeed.homekit[value]}`);
+		    }
 		    break;
 		case "setpointTemp":
 		    this.heaterCoolerService
@@ -525,16 +550,25 @@ IntesisWebDevice.prototype = {
 		    this.heaterCoolerService
 			.updateCharacteristic(Characteristic.HeatingThresholdTemperature,
 			    value);
+		    if (changed) {
+			this.log(`${this.name}: Setpoint temp changed: ${oldValue}°C → ${value}°C`);
+		    }
 		    break;
 		case "currentTemp":
 		    this.heaterCoolerService
 			.updateCharacteristic(Characteristic.CurrentTemperature,
 			    value);
+		    if (changed) {
+			this.log(`${this.name}: Current temp changed: ${oldValue}°C → ${value}°C`);
+		    }
 		    break;
 		case "swingMode":
 		    this.heaterCoolerService
 			.updateCharacteristic(Characteristic.SwingMode,
 			    this.dataMap.swingMode.homekit(value));
+		    if (changed) {
+			this.log(`${this.name}: Swing mode changed: ${this.dataMap.swingMode.homekit(oldValue)} → ${this.dataMap.swingMode.homekit(value)}`);
+		    }
 		    break;
 	    }
 	}
@@ -547,7 +581,7 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .getCharacteristic(Characteristic.Active)
 		    .on("get", callback => {
-			this.platform.refreshConfig(`${this.name}: ${serviceName}`);
+			// Background polling handles refresh
 			this.details.services
 			    ? callback(undefined, this.dataMap.power.homekit[this.details.services.power.value])
 			    : callback(Error(), undefined);
@@ -558,6 +592,8 @@ IntesisWebDevice.prototype = {
 			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (err) => {
 			    if (!err) {
 				this.details.services.power.value = intesisValue;
+				// Immediately update HomeKit with the new value
+				this.heaterCoolerService.updateCharacteristic(Characteristic.Active, value);
 			    }
 			    callback(err);
 			});
@@ -569,7 +605,7 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .getCharacteristic(Characteristic.TargetHeaterCoolerState)
 		    .on("get", callback => {
-			this.platform.refreshConfig(`${this.name}: ${serviceName}`);
+			// Background polling handles refresh
 			this.details.services
 			    ? callback(undefined, this.dataMap.userMode.homekit[this.details.services.userMode.value])
 			    : callback(Error(), undefined);
@@ -580,6 +616,8 @@ IntesisWebDevice.prototype = {
 			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (err) => {
 			    if (!err) {
 				this.details.services.userMode.value = intesisValue;
+				// Immediately update HomeKit with the new value
+				this.heaterCoolerService.updateCharacteristic(Characteristic.TargetHeaterCoolerState, value);
 			    }
 			    callback(err);
 			});
@@ -596,7 +634,7 @@ IntesisWebDevice.prototype = {
 			minStep: 1
 		    })
 		    .on("get", callback => {
-			this.platform.refreshConfig(`${this.name}: ${serviceName}`);
+			// Background polling handles refresh
 			this.details.services
 			    ? callback(undefined, this.dataMap.fanSpeed.homekit[this.details.services.fanSpeed.value])
 			    : callback(Error(), undefined);
@@ -607,6 +645,8 @@ IntesisWebDevice.prototype = {
 			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (err) => {
 			    if (!err) {
 				this.details.services.fanSpeed.value = intesisValue;
+				// Immediately update HomeKit with the new value
+				this.heaterCoolerService.updateCharacteristic(Characteristic.RotationSpeed, value);
 			    }
 			    callback(err);
 			});
@@ -638,7 +678,7 @@ IntesisWebDevice.prototype = {
 			minStep: step
 		    })
 		    .on("get", callback => {
-			this.platform.refreshConfig(`${this.name}: ${serviceName} cool`);
+			// Background polling handles refresh
 			this.details.services
 			    ? callback(undefined, this.details.services.setpointTemp.value)
 			    : callback(Error(), undefined);
@@ -648,6 +688,8 @@ IntesisWebDevice.prototype = {
 			this.platform.setValue(userID, deviceID, serviceID, Math.round(value * 10), (err) => {
 			    if (!err) {
 				this.details.services.setpointTemp.value = value;
+				// Immediately update HomeKit with the new value
+				this.heaterCoolerService.updateCharacteristic(Characteristic.CoolingThresholdTemperature, value);
 			    }
 			    callback(err);
 			});
@@ -662,7 +704,7 @@ IntesisWebDevice.prototype = {
 			minStep: step
 		    })
 		    .on("get", callback => {
-			this.platform.refreshConfig(`${this.name}: ${serviceName} heat`);
+			// Background polling handles refresh
 			this.details.services
 			    ? callback(undefined, this.details.services.setpointTemp.value)
 			    : callback(Error(), undefined);
@@ -672,6 +714,8 @@ IntesisWebDevice.prototype = {
 			this.platform.setValue(userID, deviceID, serviceID, Math.round(value * 10), (err) => {
 			    if (!err) {
 				this.details.services.setpointTemp.value = value;
+				// Immediately update HomeKit with the new value
+				this.heaterCoolerService.updateCharacteristic(Characteristic.HeatingThresholdTemperature, value);
 			    }
 			    callback(err);
 			});
@@ -683,7 +727,7 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .getCharacteristic(Characteristic.CurrentTemperature)
 		    .on("get", callback => {
-			this.platform.refreshConfig(`${this.name}: ${serviceName}`);
+			// Background polling handles refresh
 			this.details.services
 			    ? callback(undefined, this.details.services.currentTemp.value)
 			    : callback(Error(), undefined);
@@ -695,7 +739,7 @@ IntesisWebDevice.prototype = {
 		this.heaterCoolerService
 		    .getCharacteristic(Characteristic.SwingMode)
 		    .on("get", callback => {
-			this.platform.refreshConfig(`${this.name}: ${serviceName}`);
+			// Background polling handles refresh
 			this.details.services
 			    ? callback(undefined, this.dataMap.swingMode.homekit(this.details.services.swingMode.value))
 			    : callback(Error(), undefined);
@@ -706,6 +750,8 @@ IntesisWebDevice.prototype = {
 			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (err) => {
 			    if (!err) {
 				this.details.services.swingMode.value = intesisValue;
+				// Immediately update HomeKit with the new value
+				this.heaterCoolerService.updateCharacteristic(Characteristic.SwingMode, value);
 			    }
 			    callback(err);
 			});
