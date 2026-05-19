@@ -93,7 +93,15 @@ IntesisWeb.prototype = {
 	    return this.loggedIn;
 	}
 	this.log.debug("GET /login OK");
-	const csrf = body.match(/signin\[_csrf_token\]" value="([^"]+)"/)[1];
+	const match = body.match(/signin\[_csrf_token\]" value="([^"]+)"/);
+	if (!match) {
+	    this.log.error(`PARSE ERROR: Failed to match pattern for csrf`);
+	    this.log.error(`Response body length: ${body.length} chars`);
+	    this.log.error(`Body preview (first 500 chars): ${body.substring(0, 500)}`);
+	    this.loggedIn = false;
+	    return this.loggedIn;
+	}
+	const csrf = match[1];
 	body = await this.got
 	    .post({
 		    url: "login",
