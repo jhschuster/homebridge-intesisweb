@@ -95,10 +95,22 @@ IntesisWeb.prototype = {
 	this.log.debug("GET /login OK");
 	const match = body.match(/signin\[_csrf_token\]" value="([^"]+)"/);
 	if (!match) {
-	    this.log.error(`PARSE ERROR: Failed to match pattern for csrf`);
-	    this.log.error(`Response body length: ${body.length} chars`);
-	    this.log.error(`Body preview (first 500 chars): ${body.substring(0, 500)}`);
-	    this.loggedIn = false;
+	    // Sometimes this GET doesn't take us to the login screen (which would
+	    // have the csrf token) and instead just shows we're already logged in.
+	    // Check for that. This seems to happen after getConfig() detects
+	    // "returned login page; session expired".
+	    if (body.match(/<div id="project-main-menu">/)) {
+		// We were already logged in and don't need to log in again.
+		this.log.debug("Already logged in!");
+		this.lastLogin = new Date().getTime();
+		this.loggedIn = true;
+	    }
+	    else {
+		this.log.error(`PARSE ERROR: Failed to match pattern for csrf or post-login screen`);
+		this.log.error(`Response body length: ${body.length} chars`);
+		this.log.error(`Body preview (first 500 chars): ${body.substring(0, 500)}`);
+		this.loggedIn = false;
+	    }
 	    return this.loggedIn;
 	}
 	const csrf = match[1];
