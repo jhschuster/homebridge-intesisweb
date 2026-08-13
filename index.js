@@ -210,11 +210,11 @@ IntesisWeb.prototype = {
 	    if (states[i]) {
 		devices[i].user_id = states[i].user_id;
 		delete states[i].user_id;
+		devices[i].services = states[i];
 	    }
 	    else {
 		goterr = true;
 	    }
-	    devices[i].services = states[i];
 	}
 	if (!goterr) {
 	    this.lastConfigFetch = new Date().getTime();
@@ -561,7 +561,8 @@ IntesisWebDevice.prototype = {
     },
 
     updateData: function (newDetails) {
-	if (!newDetails) {
+	if (!newDetails || !newDetails.services) {
+	    this.log.debug(`${this.name}: Skipping update (no services data)`);
 	    return;
 	}
 	const oldDetails = this.details;
@@ -644,7 +645,9 @@ IntesisWebDevice.prototype = {
 			this.log(`${this.name}: ${serviceName} SET`, value, intesisValue);
 			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (err) => {
 			    if (!err) {
-				this.details.services.power.value = intesisValue;
+				if (this.details.services) {
+				    this.details.services.power.value = intesisValue;
+				}
 				// Immediately update HomeKit with the new value
 				this.heaterCoolerService.updateCharacteristic(Characteristic.Active, value);
 			    }
@@ -668,7 +671,9 @@ IntesisWebDevice.prototype = {
 			this.log.debug(`${this.name}: ${serviceName} SET`, value, intesisValue);
 			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (err) => {
 			    if (!err) {
-				this.details.services.userMode.value = intesisValue;
+				if (this.details.services) {
+				    this.details.services.userMode.value = intesisValue;
+				}
 				// Immediately update HomeKit with the new value
 				this.heaterCoolerService.updateCharacteristic(Characteristic.TargetHeaterCoolerState, value);
 			    }
@@ -697,7 +702,9 @@ IntesisWebDevice.prototype = {
 			this.log.debug(`${this.name}: ${serviceName} SET`, value, intesisValue);
 			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (err) => {
 			    if (!err) {
-				this.details.services.fanSpeed.value = intesisValue;
+				if (this.details.services) {
+				    this.details.services.fanSpeed.value = intesisValue;
+				}
 				// Immediately update HomeKit with the new value
 				this.heaterCoolerService.updateCharacteristic(Characteristic.RotationSpeed, value);
 			    }
@@ -740,7 +747,9 @@ IntesisWebDevice.prototype = {
 			this.log.debug(`${this.name}: ${serviceName} cool SET`, value, Math.round(value * 10));
 			this.platform.setValue(userID, deviceID, serviceID, Math.round(value * 10), (err) => {
 			    if (!err) {
-				this.details.services.setpointTemp.value = value;
+				if (this.details.services) {
+				    this.details.services.setpointTemp.value = value;
+				}
 				// Immediately update HomeKit with the new value
 				this.heaterCoolerService.updateCharacteristic(Characteristic.CoolingThresholdTemperature, value);
 			    }
@@ -766,7 +775,9 @@ IntesisWebDevice.prototype = {
 			this.log.debug(`${this.name}: ${serviceName} heat SET`, value, Math.round(value * 10));
 			this.platform.setValue(userID, deviceID, serviceID, Math.round(value * 10), (err) => {
 			    if (!err) {
-				this.details.services.setpointTemp.value = value;
+				if (this.details.services) {
+				    this.details.services.setpointTemp.value = value;
+				}
 				// Immediately update HomeKit with the new value
 				this.heaterCoolerService.updateCharacteristic(Characteristic.HeatingThresholdTemperature, value);
 			    }
@@ -802,7 +813,9 @@ IntesisWebDevice.prototype = {
 			this.log.debug(`${this.name}: ${serviceName} SET`, value, intesisValue);
 			this.platform.setValue(userID, deviceID, serviceID, intesisValue, (err) => {
 			    if (!err) {
-				this.details.services.swingMode.value = intesisValue;
+				if (this.details.services) {
+				    this.details.services.swingMode.value = intesisValue;
+				}
 				// Immediately update HomeKit with the new value
 				this.heaterCoolerService.updateCharacteristic(Characteristic.SwingMode, value);
 			    }
