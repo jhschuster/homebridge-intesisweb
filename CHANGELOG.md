@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.7] - 2026-08-16
+
+### Fixed
+- Guard against null services when setting characteristic values
+
+## [2.0.6] - 2026-05-22
+
+### Fixed
+- Sometimes GETing /login doesn't take us to the login screen (which would have the csrf token) and instead just shows we're already logged in.  Check for that. This seems to happen after getConfig() detects "returned login page; session expired".
+
+## [2.0.5] - 2026-05-18
+
+### Fixed
+- Better handling of a successful login with no CSRF token(!)
+
 ## [2.0.2] - 2026-01-03
 
 ### Added
