@@ -2,24 +2,28 @@
   "pluginAlias": "IntesisWeb",
   "pluginType": "platform",
   "singular": true,
-  "headerDisplay": "[homebridge-intesisweb](https://github.com/jhschuster/homebridge-intesisweb) is a Homebridge plugin to interact with Intesis Home heat pump controllers.",
-  "footerDisplay": "For additional help please see the [developer page](https://github.com/jhschuster/homebridge-intesisweb).",
+  "strictValidation": false,
+  "headerDisplay": "[homebridge-intesisweb](https://github.com/jhschuster/homebridge-intesisweb) connects Intesis AC Cloud Control mini-splits to HomeKit.",
+  "footerDisplay": "For setup, behavior, and troubleshooting details, see the [README](https://github.com/jhschuster/homebridge-intesisweb#readme).",
   "schema": {
     "type": "object",
+    "required": ["username", "password"],
+    "additionalProperties": false,
     "properties": {
       "username": {
 	"title": "Intesis User Name",
 	"type": "string",
-	"required": true,
 	"placeholder": "username",
-	"description": "Username for your Intesis account"
+	"minLength": 1,
+	"description": "Username used to sign in to AC Cloud Control"
       },
       "password": {
 	"title": "Intesis Password",
 	"type": "string",
-	"required": true,
 	"placeholder": "password",
-	"description": "Password for your Intesis account"
+	"minLength": 1,
+	"x-schema-form": {"type": "password"},
+	"description": "Password used to sign in to AC Cloud Control"
       },
       "swingMode": {
 	"title": "Swing Mode",
@@ -28,29 +32,31 @@
 	  { "title": "Horizontal", "enum": ["H"] },
 	  { "title": "Vertical", "enum": ["V"] }
 	],
-	"required": false,
+	"default": "H",
 	"description": "Should swing mode affect the horizontal or vertical vanes? Defaults to horizontal."
       },
       "apiBaseURL": {
 	"title": "Intesis URL",
 	"type": "string",
 	"format": "uri",
-	"required": false,
+	"default": "https://accloud.intesis.com/",
 	"description": "Base URL of Intesis website"
       },
       "configCacheSeconds": {
 	"title": "Cache Time",
 	"type": "integer",
 	"minimum": 1,
-	"required": false,
-	"description": "Number of seconds for which to cache data"
+	"maximum": 3600,
+	"default": 30,
+	"description": "Seconds between AC Cloud status polls"
       },
       "defaultTemperature": {
 	"title": "Default Temperature",
 	"type": "integer",
 	"minimum": 0,
-	"required": false,
-	"description": "Temperature (in Celsius) to default the current temperature to when no reading is available. 0 means use the current set point. Defaults to 0."
+	"maximum": 50,
+	"default": 0,
+	"description": "Temperature (in Celsius) to use when telemetry is unavailable. 0 falls back to the current setpoint, then 20 °C if needed."
       }
     }
   },

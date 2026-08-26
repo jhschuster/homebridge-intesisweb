@@ -1,10 +1,12 @@
 {
   "name": "homebridge-intesisweb",
-  "version": "2.0.7",
-  "description": "Homebridge plugin for the IntesisHome, using their web interface.",
+  "version": "2.0.8-test.3",
+  "description": "Homebridge plugin for Intesis AC Cloud Control mini-split systems.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage",
+    "prepublishOnly": "npm test"
   },
   "keywords": [
     "homebridge-plugin",
@@ -12,7 +14,8 @@
     "homebridge",
     "intesisweb",
     "intesis",
-    "homebridge-2.0"
+    "homebridge-2.0",
+    "supports-hap"
   ],
   "author": {
     "name": "Jay Schuster",
@@ -21,17 +24,25 @@
   },
   "license": "MIT",
   "engines": {
-    "homebridge": "^1.6.0 || ^2.0.0-beta.0",
-    "node": ">=18.20.4"
+    "homebridge": "^1.8.0 || ^2.0.0",
+    "node": "^22.10.0 || ^24.0.0"
   },
   "dependencies": {
     "got": "^11.8.1",
     "tough-cookie": "^4.0.0"
   },
+  "files": [
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md",
+    "config.schema.json",
+    "index.js",
+    "lib/"
+  ],
   "deprecated": false,
   "repository": {
     "type": "git",
-    "url": "git://github.com/jhschuster/homebridge-intesisweb.git"
+    "url": "https://github.com/jhschuster/homebridge-intesisweb.git"
   },
   "homepage": "https://github.com/jhschuster/homebridge-intesisweb#readme",
   "bugs": "https://github.com/jhschuster/homebridge-intesisweb/issues",
