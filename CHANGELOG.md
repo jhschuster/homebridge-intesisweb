@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.0.8] - Unreleased
+## [2.1.0] - Unreleased
 
 ### Added
 - Fan-only and dry-mode switches when AC Cloud advertises those modes
@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
   feature, mapping, queue, parser, and support modules
 - Use stable AC Cloud device IDs during polling reconciliation
 - Support current AC Cloud swing markup and unavailable fan-mode setpoints
+- Report Fan Auto and axis swing switches off while physical power is off
 - Require supported Node.js 22 or 24 releases and Homebridge 1.8 or later
 - Rewrite configuration, service, development, and troubleshooting guidance
 

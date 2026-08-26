@@ -630,7 +630,7 @@ test('RotationSpeed exposes four nonzero manual levels and retains them while au
     }
     device.updateData(deviceDetails({power: 0, fanSpeed: 0}));
     assert.equal(speed.value, 100);
-    assert.equal(device.autoFanSpeedService.getCharacteristic(Characteristic.On).value, true);
+    assert.equal(device.autoFanSpeedService.getCharacteristic(Characteristic.On).value, false);
     assert.deepEqual(getCharacteristic(device.fanSpeedService, Characteristic.RotationSpeed),
         {error: undefined, value: 100});
     assert.equal(device.heaterCoolerService.characteristics.has(Characteristic.RotationSpeed), false);
@@ -677,7 +677,7 @@ test('Fan Speed RotationSpeed maps percentages to Intesis manual levels', async 
 
 test('RotationSpeed while physically off updates raw speed without powering on', async () => {
     const {device, writes} = makeDevice({power: 0, fanSpeed: 0});
-    assert.equal(device.autoFanSpeedService.getCharacteristic(Characteristic.On).value, true);
+    assert.equal(device.autoFanSpeedService.getCharacteristic(Characteristic.On).value, false);
 
     const result = await setCharacteristic(device.fanSpeedService, Characteristic.RotationSpeed, 75);
 
@@ -760,6 +760,7 @@ test('failed fan-speed writes preserve retained manual and automatic state', asy
 for (const [axis, serviceID] of [['horizontal', 6], ['vertical', 5]]) {
     test(`${axis} SwingMode writes its Intesis UID and follows polling`, async () => {
         const {device, writes} = makeDevice({
+	    power: 1,
             horizontalSwingValue: 0,
             verticalSwingValue: 0,
             swingServiceID: serviceID,
@@ -780,6 +781,7 @@ for (const [axis, serviceID] of [['horizontal', 6], ['vertical', 5]]) {
         assert.equal(selectedService.getCharacteristic(Characteristic.On).value, true);
         assert.equal(otherService.getCharacteristic(Characteristic.On).value, false);
         device.updateData(deviceDetails({
+	    power: 1,
             horizontalSwingValue: 0,
             verticalSwingValue: 0,
             swingServiceID: serviceID,
@@ -798,6 +800,7 @@ for (const [axisName, property, serviceID] of [
 ]) {
     test(`${axisName} switch GET/SET uses only its parsed Intesis UID`, async () => {
         const options = {
+	    power: 1,
             horizontalSwingValue: axisName === 'horizontalVanes' ? 0 : 10,
             verticalSwingValue: axisName === 'verticalVanes' ? 0 : 10
         };
@@ -835,6 +838,7 @@ test('failed axis swing write preserves cached and published state and completes
 
 test('polling synchronizes both axis switches without cross-axis mutation', () => {
     const {device} = makeDevice({
+	power: 1,
         horizontalSwingValue: 0,
         verticalSwingValue: 10,
         swingServiceID: 6,
@@ -842,6 +846,7 @@ test('polling synchronizes both axis switches without cross-axis mutation', () =
     });
 
     device.updateData(deviceDetails({
+	power: 1,
         horizontalSwingValue: 10,
         verticalSwingValue: 0,
         swingServiceID: 6,
@@ -856,6 +861,7 @@ test('polling synchronizes both axis switches without cross-axis mutation', () =
 
 test('generic and axis swing controls synchronize bidirectionally only for matching UID', async () => {
     const {device, writes} = makeDevice({
+	power: 1,
         horizontalSwingValue: 0,
         verticalSwingValue: 0,
         swingServiceID: 6,
@@ -887,4 +893,49 @@ test('generic and axis swing controls synchronize bidirectionally only for match
         [6, 0],
         [5, 10]
     ]);
+});
+
+test('off units suppress persisted Fan Auto and swing switches until power returns', async () => {
+    const {device, writes} = makeDevice({
+	power: 0,
+	fanSpeed: 0,
+	horizontalSwingValue: 10,
+	verticalSwingValue: 10
+    });
+
+    assert.deepEqual(getCharacteristic(device.autoFanSpeedService, Characteristic.On),
+	{error: undefined, value: false});
+    assert.deepEqual(getCharacteristic(device.horizontalSwingService, Characteristic.On),
+	{error: undefined, value: false});
+    assert.deepEqual(getCharacteristic(device.verticalSwingService, Characteristic.On),
+	{error: undefined, value: false});
+
+    // Writes while off retain the Intesis preference without advertising an
+    // effectively powered switch in HomeKit.
+    await setCharacteristic(device.autoFanSpeedService, Characteristic.On, true);
+    await setCharacteristic(device.horizontalSwingService, Characteristic.On, true);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(writes.map(({serviceID, value}) => [serviceID, value]), [[4, 0], [6, 10]]);
+    assert.equal(device.autoFanSpeedService.getCharacteristic(Characteristic.On).value, false);
+    assert.equal(device.horizontalSwingService.getCharacteristic(Characteristic.On).value, false);
+
+    device.updateData(deviceDetails({
+	power: 1,
+	fanSpeed: 0,
+	horizontalSwingValue: 10,
+	verticalSwingValue: 10
+    }));
+    assert.equal(device.autoFanSpeedService.getCharacteristic(Characteristic.On).value, true);
+    assert.equal(device.horizontalSwingService.getCharacteristic(Characteristic.On).value, true);
+    assert.equal(device.verticalSwingService.getCharacteristic(Characteristic.On).value, true);
+
+    device.updateData(deviceDetails({
+	power: 0,
+	fanSpeed: 0,
+	horizontalSwingValue: 10,
+	verticalSwingValue: 10
+    }));
+    assert.equal(device.autoFanSpeedService.getCharacteristic(Characteristic.On).value, false);
+    assert.equal(device.horizontalSwingService.getCharacteristic(Characteristic.On).value, false);
+    assert.equal(device.verticalSwingService.getCharacteristic(Characteristic.On).value, false);
 });

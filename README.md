@@ -83,6 +83,12 @@ Service availability is based on the controls AC Cloud reports for each unit.
 - **Horizontal Swing** and **Vertical Swing** are separate switches published
   only for axes reported by the unit.
 
+Fan Auto and the axis swing switches show effective operation rather than only
+the stored AC Cloud preference. They therefore appear off while the mini-split
+is physically off, preventing HomeKit from labeling an idle accessory
+"Powered On." Their underlying Intesis settings are retained and appear again
+when physical power returns.
+
 The Fan Speed service's Active value mirrors physical HVAC power, but changing
 that HomeKit toggle is intentionally a no-op. Physical power and operating mode
 remain under the Heater/Cooler and auxiliary-mode services.
