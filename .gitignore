@@ -1,7 +1,4 @@
 node_modules
-package-lock.json
-/.idea/.gitignore
-/.idea/homebridge-intesisweb.iml
-/.idea/misc.xml
-/.idea/modules.xml
-/.idea/vcs.xml
+/env.sh
+*.tgz
+.idea/

@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-08-26
+
+### Added
+- Fan-only and dry-mode switches when AC Cloud advertises those modes
+- Manual Fan Speed service and separate Fan Auto switch
+- Capability-gated Horizontal Swing and Vertical Swing switches
+- Serialized per-device writes and focused regression coverage for cloud,
+  discovery, HVAC, fan, swing, parser, and queue behavior
+- Synology test-deployment helper with package fingerprint verification
+
+### Changed
+- Split the original monolithic implementation into cloud, platform, device,
+  feature, mapping, queue, parser, and support modules
+- Use stable AC Cloud device IDs during polling reconciliation
+- Support current AC Cloud swing markup and unavailable fan-mode setpoints
+- Report Fan Auto and axis swing switches off while physical power is off
+- Require supported Node.js 22 or 24 releases and Homebridge 1.8 or later
+- Rewrite configuration, service, development, and troubleshooting guidance
+
+### Security
+- Keep local credentials and deployment settings in ignored `env.sh`
+- Redact credentials, session material, user IDs, and response bodies from logs
+- Exclude local deployment files, tests, environment files, and package
+  archives from the published npm package
+
 ## [2.0.7] - 2026-08-16
 
 ### Fixed
